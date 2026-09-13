@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The page is dark, and says so before the stylesheet lands. Without this
+     the browser paints its own white ground first and every reader gets the
+     flash this meta exists to prevent -- including the ones whose system is
+     set to light, who will land on a dark page either way. -->
+<meta name="color-scheme" content="dark">
+<title>From Space · Game information</title>
+<!-- The site mark as the tab icon, inline rather than a file: a draft
+     opened from disk shows it too, and the publish step copies nothing
+     new. Built in chrome.py, which says why. -->
+<link rel="icon" href="data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'><style>.f{stroke:%230b62ab}.l{stroke:%23a8329b}%40media(prefers-color-scheme:dark){.f{stroke:%237cc5ff}.l{stroke:%23e08add}}</style><rect%20class='f'%20x='1.6'%20y='1.6'%20width='20.8'%20height='20.8'%20rx='5'%20fill='none'%20stroke-width='2.4'/><path%20class='l'%20d='M6%2015.5%20L10%209.5%20L13.5%2013.5%20L18%206.5'%20fill='none'%20stroke-width='3'%20stroke-linecap='round'%20stroke-linejoin='round'/></svg>">
+<style>/* STEAMDBnexus -- the game page.
+ *
+ * Lifted out of a Python string, where it lived while the design was being
+ * decided. It bit twice there: once a regex meant to remove a few unused
+ * colour tokens ate the entire dark palette, because CSS inside Python has to
+ * be edited as text rather than as CSS.
+ *
+ * Two rules hold across the whole sheet:
+ *
+ *   Content is not boxed. Controls are. A border says "this is a thing you act
+ *   on"; putting one round a paragraph of facts says nothing.
+ *
+ *   Every colour is a token, and there is one set of them. **The site is dark
+ *   and only dark.** It had a light palette too, chosen by the reader's system
+ *   setting, and that was thirty colours kept in step for a page nobody comes
+ *   to a games database wanting: a bright flash in a dark room.
+ *
+ *   So a colour is checked against one ground rather than two, which is easier
+ *   and not weaker -- the rule that a token with 2.4:1 somewhere is not
+ *   shippable still holds, there is simply only one somewhere now. Audit the
+ *   palette after changing it: every token used must be defined, and every
+ *   token defined must be used.
+ *
+ * See __memory/memory/page-design.md.
+ */
+
+:root {
+    color-scheme:dark;
+
+    /* grounds and lines */
+    --bg: #10151d;
+    --card: #18212d;
+    --card-2: #192431;
+    --line: #2a3747;
+    --rule: #41536a;
+    --hairline: #ffffff09;
+    --image-line: #35485a;
+
+    /* text */
+    --text: #e4ecf4;
+    --text-soft: #b9c8d7;
+    --text-quiet: #b5c9da;
+    --muted: #93a5b9;
+
+    /* the two accents */
+    --blue: #7cc5ff;
+    --magenta: #e08add;
+
+    /* the backdrop */
+    --art: .50;
+    --art-blur: 12px;
+
+    /* review score bands */
+    --sc-good: #80d8ad;
+    --sc-ok: #c3d97a;
+    --sc-mixed: #dfc598;
+    --sc-poor: #e8a66a;
+    --sc-bad: #ff8f8f;
+    --green: #80d8ad;
+    --meter-bg: #775752;
+
+    /* charts */
+    --avg: #7cc5ff;
+    --peak: #274966;
+    --grid: #212c39;
+
+    /* the three platform marks. Their own tokens rather than the accents:
+       blue on this site means "this link leaves the site", and a mark that
+       borrowed it would be making a promise it cannot keep. Against --bg:
+       9.13, 13.51 and 12.57 to one, where a non-text mark needs 3. */
+    --os-win: #4cc2ff;
+    --os-mac: #d7dee7;
+    --os-linux: #ffd05a;
+
+    /* the parts of a command line, inside the launch and cloud-save popups.
+       A flag, a quoted string and a bare word are three different things and
+       one colour makes them a wall. Against --bg: 9.76, 10.56 and 10.37 to
+       one, where body text needs 4.5. */
+    --cb-flag: #e8b55c;
+    --cb-str: #8fd4a2;
+    --cb-root: #7fd0d6;
+
+    /* odds and ends */
+    --deck: #dfc598;
+    --link-icon: #8098ad;
+}
+
+/* --------------------------------------- where a link goes, in colour */
+/* Site-wide, not the index's. page-design.md files this under "what holds on
+   every page", and the moment it lived only in the index's sheet the game
+   page's own link home used `.stay` with no rule behind it -- a blue link that
+   was supposed to be the unmarked one. The class audit caught it; the lesson is
+   that a shared class belongs in the shared sheet.
+
+   `a` is blue by default just below, and blue means "this leaves this site". A
+   link that STAYS drops the colour: the ordinary case is not marked, the
+   exceptions are. */
+.stay { color:var(--text) }
+.stay:hover { color:var(--text);text-decoration:underline }
+/* The arrow is the character itself, not a CSS unicode escape. The escape form
+   went through a Python string on the way into this file and came out as
+   control character 0x11 followed by "97": still valid CSS, invisible in a
+   diff, and a stray control byte in the stylesheet. A backslash followed by
+   digits is an octal escape in Python before it is ever a CSS one. The file is
+   UTF-8 -- write the glyph. */
+.leaves::after { content:"↗";font-size:.85em;margin-left:3px;
+                 color:var(--link-icon);vertical-align:baseline }
+
+/* ------------------------------------------------------------- the 404 */
+.oops { max-width:640px;padding:40px 0 80px }
+.oops h1 { margin:6px 0 20px }
+.oops .lede { font-size:16.5px;line-height:1.6;color:var(--text-soft) }
+.oops p { color:var(--text-soft) }
+.big { font-size:15px;font-weight:600 }
+
+/* -------------------------------------- the last thirty days, and neighbours */
+/* The one figure the reviews API cannot give: a lifetime percentage cannot say
+   whether a game is getting better or worse. It sits under the all-time score
+   and carries its OWN band colour, which is the point -- a game at 92% for life
+   and 41% this month should not show one colour for both. */
+.recent { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+/* The direct child only. The daily strip inside this block carries a <b> of
+   its own in every tooltip, and an unqualified rule here rendered those as
+   small muted upper case -- the same mistake `.rvhist b` made, in the same
+   week, for the same reason. */
+.recent > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+.recent .rw { display:block;font-size:13px;font-weight:600;margin-top:5px;
+              color:var(--score) }
+.recent .rn { display:block;font-size:11.5px;color:var(--muted);margin-top:2px }
+
+/* Review counts over time, directly under the meter that reports them for the
+   whole life of the game. A lifetime percentage cannot say whether a game was
+   always liked or was rescued; twenty-four bars can.
+
+   The bar's HEIGHT is that period's review count and the cap is the negative
+   part of it, so volume and mood are one shape rather than two charts. The
+   fills are the meter's own two colours on purpose: the reader has just read
+   that bar, and a chart under it in different colours would be a second
+   language to learn for the same fact.
+
+   Elements rather than SVG, and the tooltip is why. An SVG <title> is the
+   browser's own tooltip and waits about a second before it appears, which is
+   not a delay any stylesheet can shorten. This one is ours, so :hover shows
+   it at once. */
+.rvhist { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+/* The direct child only. The tooltip inside the chart carries a <b> of its
+   own, and an unqualified rule here made it small, muted and upper case. */
+.rvhist > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+/* Not scoped to `.rvhist`. The marked-periods block below uses the same note
+   and, scoped, it rendered there as full-size body text -- the third time in
+   this file a class has been styled in one place and used in two. */
+.rv-note { display:block;font-size:11.5px;color:var(--muted);margin-top:2px;
+           line-height:1.45 }
+
+/* The row is the plot. Each column is a full-height hover target with the bar
+   sitting at the bottom of it, because a bar two pixels tall is not something
+   anybody can point at -- and a period with no reviews has no bar at all. */
+.rv-bars { position:relative;display:flex;align-items:flex-end;gap:2px;
+           height:58px;margin:9px 0 4px }
+.rv-bar { flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end }
+.rv-up { display:block;width:100%;background:var(--score) }
+.rv-down { display:block;width:100%;background:var(--meter-bg) }
+
+/* Anchored to the row rather than to the column, so left:0;right:0 makes it
+   the width of the chart. Anchored to the column it would be ten pixels wide
+   and would hang off the side of the panel at both ends.
+
+   On `.rv-bars` rather than `.rvhist`, because both strips carry that class
+   and only the long one sits inside `.rvhist`. */
+.rv-bars em { position:absolute;left:0;right:0;bottom:calc(100% + 3px);
+             visibility:hidden;z-index:3;
+             background:var(--card);border:1px solid var(--line);
+             border-radius:7px;padding:6px 8px;
+             font-style:normal;font-size:11px;line-height:1.4;
+             color:var(--text);text-align:center;
+             box-shadow:0 3px 10px #00000026 }
+/* The period and its share on the first line, the counts beneath. */
+.rv-bars em b { display:block;font-weight:600;margin-bottom:1px }
+/* The share carries a band class of its own -- s-good, s-mixed and the rest --
+   which is the same five-step table the big number at the top of the panel
+   uses. Those classes only set --score; this is the rule that spends it.
+   Checked against --card in both themes: the worst of the ten is 5.29:1. */
+.rv-bars em span { color:var(--score) }
+/* No transition and no delay: the whole point of owning this element. */
+.rv-bar:hover em { visibility:visible }
+
+/* The newest period has not finished, so its bar is not a result yet. Faded
+   rather than hidden: dropping it would make the chart up to a month out of
+   date, and leaving it solid draws a fall that is only the calendar. The end
+   label says 'so far' for anyone not seeing colour. */
+.rv-part .rv-up { opacity:.45 }
+
+.rv-span { display:flex;justify-content:space-between;font-size:10px;
+           color:var(--muted);gap:10px }
+
+/* The stretches Steam marks on its own review graph. A block of its own, not
+   shading on the bars: the periods run from 3 days to 123 while a bar is a
+   whole month, so colouring September to mark eleven days of it would be a
+   claim about September.
+
+   Dates and a length, and nothing else. The payload carries a `type` that is
+   0 on every event held, with no label anywhere saying what 0 means -- so
+   naming these would be putting a word in Valve's mouth. */
+.marked { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+.marked > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+/* One line a period, wrapping rather than overflowing. The column is 290px
+   and a `nowrap` row that cannot fit pushes its second half outside the card
+   -- which is what the first version did. */
+.mk-row { display:block;font-size:12px;color:var(--text-soft);padding:5px 0 }
+.mk-row:first-of-type { margin-top:7px }
+.mk-when { white-space:nowrap }
+.mk-len { color:var(--muted);font-size:11px;white-space:nowrap }
+/* The glyph itself, never the CSS escape `\00b7`. Written as an escape it
+   goes through a shell and a Python string on the way into this file and
+   arrives as a NUL byte followed by "b7" -- grep then calls the stylesheet a
+   binary file and the page shows a replacement character. The same note sits
+   beside `.leaves::after`, which was bitten first. This file is UTF-8. */
+.mk-len::before { content:" · ";color:var(--line) }
+
+/* The same thirty days as the summary above it, with a shape. Shorter than the
+   long chart on purpose: it is a detail under a figure, not a second headline.
+   Thirty bars in 250px is about six pixels each, and the numbers live in the
+   tooltip where there is room for them. */
+.rv-days { height:34px;margin:8px 0 3px }
+.recent .rv-span { margin-bottom:2px }
+
+/* Games Steam lists as similar, and only the ones this site holds a page for.
+   Every row is therefore an internal link with a real name, so none of them
+   wears the blue that means "this leaves the site". */
+.related { list-style:none;margin:0 0 12px;padding:0 }
+.related li { border-bottom:1px solid var(--hairline);padding:7px 0 }
+.related li:last-child { border-bottom:0 }
+.related a { font-size:12.5px;overflow-wrap:anywhere }
+
+/* ---------------------------------------------------------- the site bar */
+/* Shared by both kinds of page, which is the point: it is the one thing that
+   says these are the same site. The game page carries the brand and the link
+   home and nothing else -- the search belongs to the index, and so does the
+   Support panel, deliberately. A donation panel holds an email address, and an
+   email address on a page that promises no scripts is what makes Cloudflare
+   inject one at the edge. See __memory/memory/hosting.md. */
+/* Sticky, because the search goes with you down a long list. */
+/* Pulled out to the page's edges and padded back in, so its background covers
+   the full width rather than just the text column.
+   
+   Without that, anything sitting left of the column slid under the bar and out
+   the side of it while scrolling. `.ours` does exactly that: it hangs its
+   magenta marker 11px into the left padding so the names still line up, which
+   is right for the row and was visible against a bar that stopped short. */
+.topbar { position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;
+          padding:14px var(--pad);margin:0 calc(var(--pad) * -1) 34px;
+          background:var(--bg);
+          border-bottom:1px solid var(--rule) }
+.brand { display:flex;align-items:center;gap:9px;font-size:16px;letter-spacing:-.02em;
+         white-space:nowrap;flex:0 0 auto }
+.brand span { font-weight:400;color:var(--text-soft) }
+.brand b { font-weight:700;color:var(--text) }
+.brand:hover { text-decoration:none }
+.logo { width:26px;height:26px;flex:0 0 auto;display:block }
+
+
+/* The game page's bar: same brand, none of the index's machinery.
+   It undoes three things `.topbar` needs and it does not.
+
+   **No background.** The index bar is sticky, so it has to paint over whatever
+   scrolls under it. The game page has the game's own art fading down the page
+   behind everything, and an opaque strip across the top of that reads as a
+   block sitting on the picture rather than as part of it.
+
+   **Not sticky, and no rule under it.** With the background gone, a sticky bar
+   would have the page's text sliding through the wordmark. A game page is read
+   top to bottom and the way out does not need to follow the reader down. */
+.sitebar { position:static;background:none;border-bottom:0;
+           padding:0;margin-bottom:26px }
+
+* { box-sizing:border-box }
+html { scroll-behavior:smooth;scroll-padding-top:30px }
+body { margin:0;background:var(--bg);color:var(--text);font:14px/1.6 system-ui,Segoe UI,sans-serif }
+a { color:var(--blue);text-decoration:none }
+a:hover { text-decoration:underline }
+a:focus-visible,summary:focus-visible { outline:2px solid var(--blue);outline-offset:4px }
+img { max-width:100%;height:auto }
+h1 { font-size:clamp(27px,3vw,42px);line-height:1.15;letter-spacing:-.035em;margin:10px 0 16px;font-weight:650 }
+h3 { font-size:15px;font-weight:600;margin:0 0 17px }
+p { margin:0 0 15px }
+/* **Two widths, because the two pages are not the same shape.** This one is
+   the game page and the 404. The index takes `.wrap.index` in `index.css` and
+   is wider.
+
+   1300, up a little from the 1250 it sat at all along. A game page is mostly
+   prose and its columns cap themselves -- `.description` at 760,
+   `.about-copy` at 820 -- so width past a point is not room, it is a wider
+   empty margin beside a paragraph that will not use it. Worked out at 1650,
+   which this briefly was on 2026-09-12: the hero's text column came to 1154px
+   holding a 760px description, leaving 394px of nothing at all.
+
+   The index is the other case, and it was the one the widening was asked for:
+   two ten-row tables side by side and a six-card news row, all scanned rather
+   than read, all using every pixel given to them. */
+/* `--pad` so the sticky bar can mirror it. The bar has to paint the full width
+   of the page, and the page's side padding is the only number that says what
+   that is -- written twice it drifts, and the bar's background stops one
+   breakpoint short. */
+.wrap { --pad:28px;max-width:1300px;margin:auto;padding:56px var(--pad) 45px }
+/* The text leads and the cover follows. The other way round gave the title a narrow column beside a 460px picture, which is what made it read as cramped next to the first draft of this page. */
+.hero { display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:40px;align-items:start;margin-bottom:30px }
+.hero-text { min-width:0 }
+.eyebrow { text-transform:uppercase;letter-spacing:.13em;font-size:11px;font-weight:700;color:var(--blue);margin:0 0 14px }
+/* Four across over a hairline, the way a dashboard states its headline numbers. A rule rather than a card each, so they read as one row. */
+.hero-stats { display:grid;grid-template-columns:repeat(4,1fr);gap:24px;border-top:1px solid var(--rule);padding-top:22px;margin:0 0 30px }
+.hero-stats .stat { background:none;border:0;padding:0 }
+.hero-stats .stat b { display:block;font-size:29px;font-weight:600;letter-spacing:-.03em;line-height:1.15;color:var(--text) }
+.hero-stats .stat span { display:block;color:var(--muted);font-size:11px;margin-top:4px }
+.news-launch-row { display:flex;justify-content:flex-end;align-items:flex-end;
+                   border-bottom:1px solid var(--rule);margin:0 }
+.news-launch-row+.hero-stats { border-top:0 }
+.news-launch { display:flex;align-items:baseline;gap:12px;margin-bottom:-1px;
+               padding:9px 13px 8px;background:var(--bg);border:1px solid var(--rule);
+               border-top:2px solid var(--magenta);border-bottom-color:var(--bg);
+               border-radius:6px 6px 0 0;cursor:pointer }
+.news-launch:hover { border-top-color:var(--text);color:var(--text) }
+.news-launch b { color:var(--magenta);font-size:11px;letter-spacing:.07em;
+                 text-transform:uppercase }
+.news-launch span { color:var(--muted);font-size:10.5px }
+.header-image { width:100%;display:block;border-radius:10px;border:1px solid var(--image-line);aspect-ratio:460/215;object-fit:cover }
+.description { font-size:16.5px;line-height:1.6;color:var(--text-soft);max-width:760px }
+/* Under the artwork now, in a 340px column rather than beside a wide paragraph,
+   so it wraps onto a second row instead of running off the end. */
+.hero-meta { display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:12px }
+/* `--muted` for the outline, not `--line`. Measured against the page ground:
+   --line is 1.24:1 in light and 1.51:1 in dark, and a border needs about 3:1 to
+   read as a border at all -- so these chips had an edge nobody could see.
+   --rule is no better at 1.63 and 2.33. --muted is 5.0 and 6.8, which at one
+   pixel is a clear thin line rather than a heavy one. */
+.hero-meta span { border:1px solid var(--muted);border-radius:5px;
+                  padding:3px 10px;color:var(--text-soft) }
+.layout { display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:24px }
+.panel { padding:0 0 26px;margin:0 0 26px;min-width:0;border-bottom:1px solid var(--rule) }
+aside .panel:last-child { border-bottom:0;margin-bottom:0 }
+/* The main column stops being a stack of boxes. A card is a thing you can pick up and move; these are sections of one document, and a rule between them with room either side says that better than a border all the way round each one. The sidebar keeps its cards, because those really are separate widgets. */
+.layout>main>.panel { padding:38px 0;margin:0;border-bottom:1px solid var(--rule) }
+.layout>main>.panel:first-child { padding-top:4px }
+.layout>main>.fold:first-of-type { margin-top:30px }
+/* A section heading, not a card label. */
+.layout>main>.panel>h3,.information-heading h3 { font-size:20px;font-weight:600;letter-spacing:-.015em;margin:0 0 4px }
+.information-heading { margin-bottom:22px;align-items:flex-start }
+.layout>main>.panel>h3+* { margin-top:18px }
+dl { margin:0 }
+/* The two buttons under the information table. They open a list a row could
+   not hold: app 252490 ships six launch entries, and a row reading "six of
+   them" says nothing. `.go` is the same button the charts opener uses. */
+.info-more { display:flex;flex-wrap:wrap;gap:18px;margin-top:18px }
+/* `.go` had a rule only inside `.charts-open`, so these two opened a dialog
+   with a text cursor and no colour -- the exact fault the note beside the
+   modal styles warns about. A <label> gets no hand from the browser.
+   Magenta because that is this site's word for "opens something here without
+   leaving"; blue would promise a page the reader never gets. */
+.info-more .go { cursor:pointer;color:var(--magenta);font-size:13px;
+                 white-space:nowrap;user-select:none }
+.info-more .go:hover { text-decoration:underline }
+
+/* The table inside those popups. Fixed-width figures for the paths and the
+   arguments, because they are things somebody may copy and a proportional
+   font makes an l and a 1 the same shape. */
+.optable { width:100%;border-collapse:collapse;font-size:12.5px }
+.optable th { text-align:left;font-weight:600;font-size:10.5px;
+              text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+              border-bottom:1px solid var(--rule);padding:0 14px 8px 0 }
+.optable td { border-bottom:1px solid var(--hairline);padding:9px 14px 9px 0;
+              vertical-align:top;color:var(--text-soft) }
+.optable tr:last-child td { border-bottom:0 }
+/* The DLC table only. Three platform marks in a table cell are a
+   column and not a sentence, so the 16px gap that separates them in
+   the Platforms row of the information table is too much here. The
+   date never wraps: '24 Sep 2026' broken over two lines is unreadable
+   and the column is narrow enough that it would. Scoped through the
+   toggle's own id, because `table_popup` gives every dialog the same
+   markup and this must not reach the launch or saves tables. */
+#dlc-open + .modal .plat { margin-right:10px }
+#dlc-open + .modal .optable td:last-child { white-space:nowrap }
+.optable code { font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+                color:var(--text);word-break:break-all }
+.cb-exe { color:var(--text);font-weight:600 }
+.cb-flag { color:var(--cb-flag) }
+.cb-str { color:var(--cb-str) }
+.cb-word { color:var(--text-soft) }
+.cb-root { color:var(--cb-root) }
+.tagline-chip { display:inline-block;font-size:10.5px;padding:2px 7px;
+                border:1px solid var(--line);border-radius:20px;
+                color:var(--muted);white-space:nowrap;margin-right:5px }
+
+/* The build id beside the update date. Present because it is the thing that
+   actually changed and somebody may want to quote it, quiet because the date
+   is what almost everybody came for. */
+.quiet { color:var(--muted);font-size:.88em }
+
+/* Each platform behind its own mark. Inline-flex so the icon and the word are
+   one thing that wraps together, rather than a picture that can end a line
+   with its label on the next one. */
+.plat { display:inline-flex;align-items:center;gap:6px;margin-right:16px;
+        white-space:nowrap }
+.plat:last-child { margin-right:0 }
+.plat svg { width:14px;height:14px;flex:0 0 auto }
+/* `fill="currentColor"` in the markup, so setting `color` here paints it. The
+   eyes and beak of the penguin stay `--bg` and are cut out of whatever colour
+   the body takes. */
+.plat-windows svg { color:var(--os-win) }
+.plat-mac svg { color:var(--os-mac) }
+.plat-linux svg { color:var(--os-linux) }
+
+.fact { display:grid;grid-template-columns:minmax(150px,22%) minmax(0,1fr);gap:24px;border-bottom:1px solid var(--hairline);padding:11px 0 }
+.fact:last-child { border-bottom:0 }
+dt { color:var(--muted);font-size:12.5px }
+dd { margin:0;overflow-wrap:anywhere;min-height:20px;font-size:14px }
+/* A rule on the left and nothing else. A border, a radius and a fill were three separate ways of saying 'these are separate', which is what made them read as older than the rest of the page. One rule does it, and twenty of them stay a list instead of becoming a wall of buttons. */
+.tags { display:flex;flex-wrap:wrap;gap:8px 18px }
+.tags span { padding:1px 0 1px 10px;border-left:2px solid var(--blue);color:var(--text-soft);font-size:12.5px }
+.feature-section { margin-bottom:22px }
+.feature-section:last-child { margin-bottom:0 }
+.feature-section h3 { font-size:12px;color:var(--muted);font-weight:500;margin-bottom:10px }
+.muted { color:var(--muted);font-size:12px }
+aside .panel>h3 { font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin:0 0 14px }
+/* The reviews heading takes the score's colour, the same as the bar over it, so the whole block says one thing. */
+.reviews>h3 { color:var(--score) }
+aside .fact { grid-template-columns:1fr 1fr;gap:10px;font-size:12px }
+aside dd { text-align:right }
+/* One variable, set by the band class, drives the bar, the number, the word and the meter -- so they can never disagree about how the game is doing. */
+.reviews { border-top:2px solid var(--score);padding-top:15px }
+.s-good { --score:var(--sc-good) }
+.s-ok { --score:var(--sc-ok) }
+.s-mixed { --score:var(--sc-mixed) }
+.s-poor { --score:var(--sc-poor) }
+.s-bad { --score:var(--sc-bad) }
+.s-none { --score:var(--muted) }
+.review-score { color:var(--score);font-size:43px;line-height:1.2;letter-spacing:-.045em }
+.review-score span { font-size:24px }
+.positive { display:block;color:var(--score);font-size:13px;margin:5px 0 }
+.meter { height:5px;border-radius:5px;background:var(--meter-bg);overflow:hidden;margin:20px 0 8px }
+.meter i { display:block;height:100%;background:var(--score) }
+.split { display:flex;justify-content:space-between;font-size:10px;color:var(--muted);gap:10px }
+.activity { font-size:32px;letter-spacing:-.03em }
+.deck-status { font-size:20px;margin-bottom:10px;color:var(--deck) }
+.link-list { list-style:none;margin:0;padding:0 }
+.link-list li { margin:9px 0;font-size:13px }
+.fold { border:0;border-top:1px solid var(--rule);border-radius:0;margin:0;background:none }
+.fold:last-of-type { border-bottom:1px solid var(--rule) }
+.fold>summary { cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px 2px;list-style:none }
+.fold>summary::-webkit-details-marker { display:none }
+.fold summary b { display:block;font-size:14px;font-weight:550 }
+.fold summary small { display:block;color:var(--muted);font-size:11px;margin-top:3px }
+.plus { font-size:23px;color:var(--blue);font-weight:300 }
+.fold[open] .plus { transform:rotate(45deg) }
+.fold[open]>summary { border-bottom:0 }
+.fold-body { padding:0 2px 26px;min-width:0 }
+.about-fold>summary { background:var(--card-2);border-radius:6px;padding:21px 16px }
+.about-fold>summary span:first-child b { font-size:16px }
+.about-fold[open] { background:var(--card-2);border-radius:6px;border-top-color:transparent }
+.about-fold[open]>summary { margin-bottom:0;border-bottom:1px solid var(--hairline) }
+.about-fold>.fold-body { padding:20px 16px 24px }
+.about-copy { max-width:820px;color:var(--text-soft);font-size:14px;
+              line-height:1.72;white-space:pre-line;overflow-wrap:anywhere }
+.two { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px }
+.two .panel { padding:0 0 0 16px;margin:0;background:none;border:0;border-left:2px solid var(--line) }
+.requirements { white-space:pre-line;font-size:12px;color:var(--text-soft);overflow-wrap:anywhere }
+.content-notice { margin:0 0 26px }
+.content-notice h3,.rating-list h3 { color:var(--muted);font-size:11px;
+                                    font-weight:600;letter-spacing:.08em;
+                                    text-transform:uppercase;margin:0 0 12px }
+.content-notice p { color:var(--text-soft);margin:0;max-width:760px }
+.rating-row { display:grid;grid-template-columns:130px 90px minmax(0,1fr);
+              gap:18px;border-bottom:1px solid var(--hairline);padding:10px 0 }
+.rating-row:last-child { border-bottom:0 }
+.rating-row b { font-size:11px;letter-spacing:.06em;color:var(--text-soft) }
+.rating-row span { font-weight:600;color:var(--text);text-transform:uppercase }
+.rating-row small { color:var(--muted);font-size:11.5px;overflow-wrap:anywhere }
+.languages { width:100%;border-collapse:collapse;font-size:12px }
+.languages th,.languages td { text-align:left;padding:8px 0;border-bottom:1px solid var(--line) }
+.languages th { color:var(--muted);font-weight:400 }
+.languages td:last-child { color:var(--green) }
+.languages+p { margin-top:15px }
+.gallery { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:22px }
+.gallery img { width:100%;display:block;aspect-ratio:16/9;object-fit:cover;border-radius:6px }
+.trailer p { font-size:12px;margin:8px 0 4px }
+.trailer a { font-size:11px }
+.achievement-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:20px 0 }
+.achievement { display:flex;align-items:center;gap:12px }
+.achievement img { width:48px;height:48px;border-radius:5px }
+.achievement b { font-size:12px }
+.achievement small { display:block;color:var(--muted);font-size:10px }
+.spoilers { margin:18px 0 }
+.spoilers summary { cursor:pointer;color:var(--blue);font-size:12px }
+/* ---------------------------------------- the announcement timeline
+ *
+ * Fifty announcements in one scroll is a scroll, not a history. So they are
+ * cut into years, the years into months, and one year is on screen at a time.
+ *
+ * **The year filter is a radio group and nothing else.** No page here runs a
+ * script, so the choice is `:checked` plus a sibling combinator: an input per
+ * year, a label per year, and one rule below per slot. That fixed list is why
+ * `model/news.MAX_YEARS` is 16 -- the sheet has to know how many slots exist
+ * before it knows which game it is drawing.
+ *
+ * The tabs are magenta because on this site magenta means "this opens in
+ * place": the year does not leave the page, it swaps what the page shows. Blue
+ * is for links that leave, and every announcement title is one.
+ */
+.tl-box { width:min(880px,94vw) }
+.tl-pick { position:absolute;width:1px;height:1px;opacity:0;pointer-events:none }
+
+/* Above the scrolling half rather than sticky inside it. The whole point of
+   the tabs is to change year, and a reader forty posts down a 2024 list should
+   not have to scroll back up to leave it -- sticky did that much, but the
+   heading and the "50 announcements, Jun 2024 to Sep 2026" line scrolled away
+   regardless, and those say what the tabs are tabs *of*. `.modal-tall` on the
+   box keeps all three. */
+.tl-tabs { display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px;
+           border-bottom:1px solid var(--rule);padding-bottom:0;
+           background:var(--bg) }
+.tl-tabs label { cursor:pointer;display:flex;align-items:baseline;gap:7px;
+                 padding:7px 13px 8px;margin-bottom:-1px;font-size:13px;
+                 font-weight:550;color:var(--muted);
+                 border-bottom:2px solid transparent }
+.tl-tabs label:hover { color:var(--text) }
+/* The count beside the year. Tabular figures so 4 and 20 line up, and a
+   smaller size so the year stays the thing being read. */
+.tl-tabs label b { font-weight:400;font-size:10.5px;color:var(--muted);
+                   font-variant-numeric:tabular-nums }
+/* Focus is drawn on the label, because the input it belongs to is 1px and
+   invisible -- without this the year tabs are keyboard-reachable and give no
+   sign of where you are. */
+.tl-pick:focus-visible+.tl-tabs label,
+.tl-tabs label:focus-within { outline:2px solid var(--magenta);outline-offset:-2px }
+
+/* Hidden by default; the rule that reveals the chosen year is written per
+   page by `build/page.news_timeline` and lands in the page's own <style>,
+   beside the ones `build/charts.py` writes for its month tabs. A game with
+   three years emits three rules.
+
+   It was sixteen fixed slots here until 2026-09-11. Sixteen was set against a
+   measured oldest announcement of August 2012 and the oldest actually held is
+   May 2010, so the cap was already one year short on the games with the
+   longest histories -- which are the only games a year filter is for. The
+   generated form has no number to get wrong. */
+.tl-year { display:none }
+
+/* The month band. The heading sits in the left column, above the rail, so a
+   reader scanning downwards meets the month before the posts in it. */
+.tl-month { display:grid;grid-template-columns:112px minmax(0,1fr);
+            column-gap:0;padding-top:18px }
+.tl-month+.tl-month { border-top:1px solid var(--line) }
+.tl-month h3 { grid-column:1;font-size:11px;font-weight:600;
+               letter-spacing:.09em;text-transform:uppercase;
+               color:var(--text-quiet);margin:2px 0 0;
+               /* `top:0`, not 44: the tabs are out of the scroller now, so the
+                  top of the scroller is where this should stop. */
+               position:sticky;top:0;background:var(--bg);
+               padding:2px 0 6px }
+.tl-list { grid-column:2;list-style:none;margin:0;padding:0 0 4px }
+
+/* The rail itself: one border down the left of the list, and each post's node
+   drawn on it. */
+.tl-item { position:relative;padding:0 0 18px 22px;
+           border-left:1px solid var(--line) }
+.tl-item:last-child { border-left-color:transparent;padding-bottom:6px }
+.tl-item:last-child:before { box-shadow:0 0 0 4px var(--bg) }
+/* Hollow for an announcement, filled for a patch note. A **shape**, not a
+   colour: blue, magenta and the three platform marks each already mean
+   something exact on this page, and this list does not need a sixth. */
+/* `--muted` and not `--rule`. The node says which posts are patch notes, so
+   it is a mark that carries meaning and owes 3:1 against the ground -- and
+   --rule measures 2.33:1 there, which is a line colour doing a mark's job. */
+.tl-item:before { content:"";position:absolute;left:-4.5px;top:4px;
+                  width:8px;height:8px;border-radius:50%;
+                  background:var(--bg);border:1.5px solid var(--muted) }
+.tl-item.is-patch:before { background:var(--text-quiet);
+                           border-color:var(--text-quiet) }
+.tl-item time { display:block;font-size:10.5px;color:var(--muted);
+                font-variant-numeric:tabular-nums;margin-bottom:3px }
+/* The clock is text, so it takes a text colour: --rule is 2.33:1 on --bg and
+   body text owes 4.5. It is set apart by a separator instead. */
+.tl-item time i { font-style:normal;color:var(--muted) }
+.tl-item time i:before { content:"·";margin:0 6px }
+.tl-copy a { font-size:13px;font-weight:550 }
+.tl-copy p { display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+             overflow:hidden;color:var(--text-soft);font-size:12.5px;
+             line-height:1.55;margin:5px 0 0;max-width:700px }
+.tl-copy small { display:block;font-size:9.5px;color:var(--muted);margin-top:5px;
+                 letter-spacing:.08em;text-transform:uppercase }
+
+@media(max-width:640px) {
+    /* The month label goes back above its posts rather than beside them:
+       112px of left column out of a 340px screen is most of the screen. */
+    .tl-month { grid-template-columns:minmax(0,1fr) }
+    .tl-month h3 { grid-column:1;margin-bottom:12px;position:static }
+    .tl-list { grid-column:1 }
+}
+.fold-body>dl+p { margin-top:15px }
+@media(max-width:1050px) {
+    .hero { grid-template-columns:minmax(0,1fr) 260px;gap:25px }
+    .hero-stats { gap:16px }
+    .hero-stats .stat b { font-size:24px }
+    .layout { grid-template-columns:minmax(0,1fr) 265px }
+    .fact { grid-template-columns:125px minmax(0,1fr);gap:10px }
+    .panel { padding:18px }
+    .fold-body { padding:18px }
+}
+@media(max-width:760px) {
+    .wrap { --pad:16px;padding:30px var(--pad) }
+    .hero,.layout { grid-template-columns:1fr }
+    .hero-media { max-width:420px }
+    .hero-stats { grid-template-columns:repeat(2,1fr);gap:18px }
+    .hero { gap:22px }
+    .header-image { max-width:600px }
+    .hero h1 { font-size:31px }
+    aside { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start }
+    aside .panel { margin-bottom:0 }
+    .two { grid-template-columns:1fr }
+    .fact { grid-template-columns:125px minmax(0,1fr) }
+}
+@media(max-width:420px) {
+    aside,.gallery,.achievement-grid { grid-template-columns:1fr }
+    .fact { grid-template-columns:105px minmax(0,1fr) }
+    .rating-row { grid-template-columns:75px 55px minmax(0,1fr);gap:10px }
+}
+.hero-media { min-width:0 }
+.header-links { margin:0 0 34px;padding-top:26px;border-top:1px solid var(--rule);overflow-x:auto }
+.header-links-grid { display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:26px }
+/* The same treatment as Show charts, in blue: a bar above and nothing around it. Blue rather than magenta because these leave for Steam, and magenta on this page means the charts. */
+.game-link { display:flex;align-items:center;gap:9px;padding:13px 0 0;background:none;border:0;border-top:2px solid var(--blue);border-radius:0;color:var(--text-soft);font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;transition:color .15s,border-color .15s }
+.game-link svg { width:17px;height:17px;flex:none;color:var(--muted);transition:color .15s }
+.game-link .outbound { margin-left:auto;color:var(--link-icon);width:14px;height:14px;flex:none }
+.game-link:hover { color:var(--text);text-decoration:none }
+.game-link:hover svg { color:var(--text) }
+.game-link:focus-visible { outline:2px solid var(--blue);outline-offset:3px }
+@media(max-width:420px) {
+    .game-link { padding:11px 0 0;gap:7px;font-size:10.5px;letter-spacing:.05em }
+    .game-link svg { width:18px;height:18px }
+}
+.information-heading { display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:17px;flex-wrap:wrap }
+.information-heading h3 { margin:0 }
+.free-tag { border:1px solid var(--green);border-radius:5px;padding:3px 10px;
+            color:var(--green);font-size:12px;font-weight:600;line-height:1.35 }
+.updated-at { margin-left:auto;text-align:right;font-size:11px;color:var(--muted) }
+.updated-at b { font-weight:500;color:var(--text-quiet) }
+/* ------------------------------------------- the page backdrop */ /* Absolute, not fixed: it belongs to the top of the page and should scroll away with the header it sits behind, rather than following the reader down a page of tables. */ body { position:relative;min-height:100vh }
+.pagetop { position:absolute;top:0;left:0;right:0;height:640px;overflow:hidden; pointer-events:none;z-index:0 }
+/* Blurred, so what carries over is the colour and the mood rather than somebody's face behind the release date. scale() is not decoration: a blur samples past the element's edges and leaves them soft and see-through, so the picture is grown until those edges fall outside the box that clips it. */ .pagetop-art { width:100%;height:100%;object-fit:cover;object-position:50% 22%; opacity:var(--art);filter:blur(var(--art-blur));transform:scale(1.12) }
+/* Two fades, not one. Down, so the art dissolves into the page rather than stopping at a line; and across from the right, because the cover sits in the left 460px and the title and description sit in the rest -- so the settled ground goes under the words, not under the picture. */ .pagetop:after { content:"";position:absolute;inset:0;background: linear-gradient(180deg,transparent 0%,transparent 20%,var(--bg) 94%), linear-gradient(90deg,var(--bg) 0%,transparent 62%) }
+.wrap { position:relative;z-index:1 }
+/* --------------------------------------------- the charts button */
+/* A bar above and nothing around it. Magenta because that is the one colour
+   this site spends on "opens something here rather than taking you away", and
+   this is the one control on the page that does it.
+ *
+ * It sat in the sidebar and now sits under the cover image, which is why the
+ * margins changed sides: it used to need clearance below it from the panels
+ * that followed, and now needs clearance above it from the artwork instead. */
+.charts-open { display:grid;grid-template-columns:minmax(190px,1fr) auto;
+               align-items:start;gap:40px;padding:14px 0 0;margin:20px 0 0;
+               border-top:2px solid var(--magenta) }
+.charts-open-copy>b { display:block;font-size:13px;letter-spacing:.09em;
+                      text-transform:uppercase;color:var(--magenta) }
+/* Allowed to run to a second line. In the sidebar this was one squeezed line
+   under a 340px image; in the wide column it has room to say the whole span. */
+.charts-open-copy>span { display:block;font-size:11.5px;line-height:1.45;
+                         color:var(--muted);margin-top:4px }
+/* The block is not a link. Only the line that says it goes somewhere does, the same as the reviews block above it -- a card-sized click target with no border round it gives no clue where it starts. */ .charts-open .go { display:block;color:var(--blue);font-size:13px; margin-top:11px;cursor:pointer }
+.charts-open .go:hover { text-decoration:underline }
+.charts-recent { min-width:330px;display:grid;
+                 grid-template-columns:repeat(3,minmax(78px,1fr));gap:5px 24px;
+                 border-left:1px solid var(--hairline);padding-left:28px }
+.charts-recent-title { grid-column:1/-1;color:var(--muted);font-size:10px;
+                       font-weight:600;letter-spacing:.09em;text-transform:uppercase }
+.charts-metric b { display:block;color:var(--text);font-size:18px;font-weight:600;
+                   letter-spacing:-.02em;line-height:1.25;white-space:nowrap }
+.charts-metric b.up { color:var(--green) }
+.charts-metric b.down { color:var(--sc-bad) }
+.charts-metric small { display:block;color:var(--muted);font-size:10.5px;
+                       margin-top:2px }
+@media(max-width:1050px) {
+    .charts-open { grid-template-columns:1fr;gap:18px }
+    .charts-recent { max-width:380px;border-left:0;border-top:1px solid var(--hairline);
+                     padding:14px 0 0 }
+}
+/* ---------------------------------------------------- the dialog */
+/* A hidden checkbox and three labels, and no script -- the same trick the month
+   switcher and the catalogue's reveal already use.
+ *
+ * It was `:target` first, which is simpler to write and put a fragment in the
+ * address bar for the whole visit: `#charts` while open, and `#top` left behind
+ * after closing, because closing a `:target` dialog means navigating to some
+ * other fragment. There is no version of `:target` that does not do this --
+ * the fragment IS the mechanism.
+ *
+ * What the trade cost, and it is a real cost: sending somebody
+ * `/game/730#charts` no longer opens the charts for them, and the back button
+ * no longer closes the dialog -- it leaves the page. The month switcher gave up
+ * shareable per-month links for the same reason and it was worth it there too.
+ *
+ * The backdrop is a label as well, so clicking anywhere beside the box closes
+ * it. */
+/* **Every label that acts as a control needs `cursor:pointer` written down.**
+   An `<a href>` gets the hand from the browser's own stylesheet; a `<label>`
+   does not. When the dialogs stopped being `:target` these all changed from
+   anchors to labels, and each one silently lost the hand: `.go`, `.support-open`
+   and `.modal-x`. Whatever else a control loses when it changes element, check
+   the cursor -- it is the only one of these a reader notices before clicking. */
+
+/* Pinned to the viewport, and that is the whole point of `fixed` here rather
+   than `absolute`.
+ *
+ * Clicking a `<label>` focuses the control it points at, and a browser scrolls
+ * whatever it focuses into view. This checkbox sits at the *end* of the
+ * document, beside the dialog it controls, because the rule below needs them
+ * adjacent -- so clicking Support in the header threw the page to the bottom
+ * before the dialog even appeared.
+ *
+ * Fixed at the top-left means it is always already in view, so scrolling it
+ * into view moves nothing. It stays 1px and transparent, and stays focusable,
+ * so a keyboard user can still reach and toggle it.
+ *
+ * `.mpick` and `.more` have the same absolute positioning and no such problem:
+ * each of those sits next to its own label, so the scroll is to where the
+ * reader already is. Distance was the bug, not the technique. */
+.modal-toggle { position:fixed;top:0;left:0;width:1px;height:1px;
+                opacity:0;pointer-events:none }
+.modal { position:fixed;inset:0;z-index:60;display:none }
+.modal-toggle:checked+.modal { display:block }
+/* `default`, deliberately, and it is the one label here that keeps it. Clicking
+   the backdrop does close the dialog, so a hand would not be a lie -- but this
+   covers the whole viewport, and a hand across all of it reads as "everything
+   you can see is clickable" rather than as one control. */
+.modal-back { position:absolute;inset:0;background:#0009;display:block;cursor:default }
+.modal-box { position:relative;margin:3vh auto;width:min(1040px,94vw); max-height:94vh;overflow-y:auto;background:var(--bg);border:1px solid var(--line); border-radius:11px;padding:24px 26px 32px;box-shadow:0 24px 60px #0007 }
+.modal-x { cursor:pointer;position:absolute;top:14px;right:16px;width:32px;height:32px; display:flex;align-items:center;justify-content:center;font-size:21px; line-height:1;color:var(--muted);background:var(--card); border:1px solid var(--line);border-radius:7px;text-decoration:none;z-index:2 }
+.modal-x:hover { color:var(--text);border-color:var(--avg);text-decoration:none }
+/* ---------------------------------- a dialog whose head stays put
+ *
+ * `.modal-box` is normally the scroller, which carries the title, the subtitle
+ * and anything under them off the top of the screen. That is fine for a dialog
+ * you read down once. It is wrong for a long list: scroll a hundred rows or
+ * fifty announcements and you are looking at numbers and dates with nothing
+ * left on screen saying what they are.
+ *
+ * So the box becomes a column -- a head that stays, a body that moves -- and
+ * whatever is given `.modal-scroll` takes the scrolling.
+ *
+ * **`min-height:0` is the load-bearing line.** A flex item's automatic minimum
+ * is its own content, so without it the body refuses to shrink, the box grows
+ * past its `max-height`, and the page scrolls instead of the list. It looks
+ * like the rule did nothing.
+ *
+ * Used by the full ranking on the index and by the announcement timeline on a
+ * game page. It lives here rather than in either sheet because both load this
+ * one, and because the trap above is worth writing down once. */
+.modal-tall { display:flex;flex-direction:column;overflow:hidden }
+.modal-scroll { flex:1 1 auto;min-height:0;overflow-y:auto }
+.modal-box h2 { font-size:19px;font-weight:600;margin:0 0 3px;padding-right:44px }
+/* ------------------------------------------- what the charts draw */ .sub { color:var(--muted);font-size:12.5px;margin:0 0 22px }
+.why { color:var(--muted);font-size:12px;margin:0 0 14px }
+.pane .why,.panel .why { min-height:3.2em }
+.stats { display:grid;grid-template-columns:repeat(4,1fr);gap:24px;border-top:1px solid var(--line);padding-top:20px;margin:0 0 26px }
+.stat { padding:0 }
+.stat b { display:block;font-size:24px;font-weight:600;letter-spacing:-.03em;line-height:1.2 }
+.stat span { display:block;color:var(--muted);font-size:11px;margin-top:2px }
+.modal-box h2+.sub { margin-bottom:20px }
+.modal-box .panel h2 { font-size:13px;margin:0 0 3px }
+svg { display:block;width:100%;height:auto }
+
+/* ------------------------------------------ pointing at a line chart
+ *
+ * The figures used to sit in an SVG `<title>`, which is the browser's own
+ * tooltip: it waits about a second and no stylesheet can shorten that. The
+ * review bars gave that up months ago for the same reason; this is the same
+ * fix on a chart that could not simply be made of bars.
+ *
+ * A bar is its own target. A curve's points are three-pixel dots at arbitrary
+ * coordinates, so `charts.hover_cells` builds the targets: one full-height
+ * column per point, reaching halfway to each neighbour, sitting over the
+ * drawing and showing its own tooltip at once.
+ *
+ * The columns are positioned in **percentages** by the builder, because the
+ * `<svg>` above is `width:100%` and scales with its column -- a pixel offset
+ * would line up at exactly one window width.
+ */
+.plot { position:relative }
+.hovers { position:absolute;inset:0;display:block }
+/* Full height, so the reader aims at a column rather than at a dot. No
+   background until hovered: the chart is the picture, this is only the
+   pointing. */
+.hv { position:absolute;top:0;bottom:0;display:block;cursor:default }
+.hv:hover { background:#ffffff0a }
+
+/* Anchored to the plot, not to the column -- the same reasoning as the review
+   bars. A tooltip inside a four-pixel column would be four pixels wide, and at
+   either end of the chart it would hang off the panel. Centred on the pointer's
+   column by `left:50%` and pulled back half its own width. */
+.hv em { position:absolute;bottom:calc(100% - 34px);left:50%;
+         transform:translateX(-50%);
+         visibility:hidden;z-index:4;white-space:nowrap;
+         background:var(--card);border:1px solid var(--line);
+         border-radius:7px;padding:6px 9px;
+         font-style:normal;font-size:11px;line-height:1.4;
+         color:var(--text);text-align:center;
+         box-shadow:0 3px 10px #00000026 }
+.hv em b { display:block;font-weight:600;margin-bottom:1px }
+/* No transition and no delay: the whole point of owning this element. */
+.hv:hover em { visibility:visible }
+/* The first and last columns would push their tooltip off the side. Anchor
+   them to their own edge instead of to their centre. */
+.hv:first-child em { left:0;transform:none }
+.hv:last-child em { left:auto;right:0;transform:none }
+.grid { stroke:var(--grid);stroke-width:1 }
+.ylab { fill:var(--muted);font-size:11px;text-anchor:end;font-family:inherit }
+.xlab { fill:var(--muted);font-size:11px;text-anchor:middle;font-family:inherit }
+.area { fill:var(--avg);opacity:.16 }
+.line-avg { fill:none;stroke:var(--avg);stroke-width:2;stroke-linejoin:round }
+.line-peak { fill:none;stroke:var(--peak);stroke-width:2;stroke-dasharray:4 3;stroke-linejoin:round }
+.hourly { fill:none;stroke:var(--peak);stroke-width:1;opacity:.85;stroke-linejoin:round }
+.dot { fill:var(--avg) }
+.dot-flat { fill:var(--peak) }
+.key { display:flex;gap:16px;font-size:11px;color:var(--muted);margin:10px 0 0 }
+.key i { display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px }
+.key .ring { background:none;border:2px solid var(--avg);border-radius:50% }
+.note { border-left:2px solid var(--blue);padding:2px 0 2px 16px;font-size:12.5px;color:var(--text-soft);margin:0 0 22px }
+.note b { color:var(--text) }
+.mpick { position:absolute;opacity:0;width:0;height:0;pointer-events:none }
+/* Equal columns rather than each button sized to its own month. 'May 2026' and 'September 2026' are five characters apart, and a row that steps in and out with the calendar reads as an accident. The column count travels with the block, since only it knows how many months there are. */.tabs { display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 16px }
+.tab-row { display:grid;gap:8px;flex:1 1 auto;min-width:0 }
+.tabs-label { font-size:12px;color:var(--muted);align-self:center;margin-right:2px }
+.tab { padding:7px 13px;font-size:12px;border:1px solid var(--line);border-radius:6px; color:var(--text-soft);background:var(--card);text-decoration:none;cursor:pointer; user-select:none;text-align:center;white-space:nowrap }
+.tab:hover { border-color:var(--avg);color:var(--text) }
+.mpick:focus-visible~.tabs label { outline:2px solid var(--blue);outline-offset:2px }
+.pane { padding:6px 0 0;margin:0;display:none }
+.pane h3 { margin:0 0 3px }
+/* A month with one number gets the chart's own aspect ratio, so it is exactly as tall as a month that has one and switching moves nothing. */ .nochart { aspect-ratio:760/300;display:flex;align-items:center; justify-content:center;text-align:center;border:1px dashed var(--line); border-radius:8px;padding:20px }
+.nochart b { display:block;font-size:14px;font-weight:550;color:var(--text) }
+.nochart span { display:block;font-size:12px;color:var(--muted);margin-top:6px }
+/* Still a button -- it is reachable and it answers -- but it does not promise a chart. */ .tab-thin { color:var(--muted);border-style:dashed }
+.modal-box footer { border-top:1px solid var(--line);padding-top:14px;margin-top:8px; font-size:11.5px;color:var(--muted) }
+@media(max-width:900px) {
+    .stats { grid-template-columns:repeat(2,1fr) }
+}
+@media(max-width:520px) {
+    .stats { grid-template-columns:1fr }
+    .tab-row { grid-template-columns:repeat(2,minmax(0,1fr))!important }
+    .modal-box { margin:0;width:100vw;max-height:100vh;border-radius:0;padding:18px 14px 26px }
+}
+.hero>div { min-width:0 }
+h1,.description,.hero-meta span,.tags span,.game-link span,.updated-at { overflow-wrap:anywhere }
+.empty-image { background:var(--card) }
+.hero h1 { margin-top:0 }
+#r-2026-06:checked~.panes .p-2026-06{display:block}#r-2026-06:checked~.tabs label[for="r-2026-06"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-07:checked~.panes .p-2026-07{display:block}#r-2026-07:checked~.tabs label[for="r-2026-07"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-08:checked~.panes .p-2026-08{display:block}#r-2026-08:checked~.tabs label[for="r-2026-08"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-09:checked~.panes .p-2026-09{display:block}#r-2026-09:checked~.tabs label[for="r-2026-09"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}.tab-row{grid-template-columns:repeat(4,minmax(0,1fr))}#tl-y0:checked~.tl>.tl-s0{display:block}#tl-y0:checked~.tl-tabs label[for="tl-y0"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y1:checked~.tl>.tl-s1{display:block}#tl-y1:checked~.tl-tabs label[for="tl-y1"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y2:checked~.tl>.tl-s2{display:block}#tl-y2:checked~.tl-tabs label[for="tl-y2"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y3:checked~.tl>.tl-s3{display:block}#tl-y3:checked~.tl-tabs label[for="tl-y3"]{color:var(--magenta);border-bottom-color:var(--magenta)}</style>
+</head>
+<body>
+<!-- The game's own store backdrop, blurred and faded into the page. Steam
+     ships it un-darkened as background_raw, which is what lets the fade be
+     ours and end on whichever background the reader's theme is using. -->
+<div class="pagetop" aria-hidden="true"><img loading="lazy" class="pagetop-art" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/page_bg_raw.jpg?t=1747735891" alt=""></div>
+<div class="wrap" id="top">
+
+<!-- The way back. A reader arriving here from a search engine had no route to
+     the rest of the site before this existed. -->
+<header class="topbar sitebar">
+  <a class="brand stay" href="../"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="none" stroke="var(--blue)" stroke-width="1.7"/><path d="M6 15.5 L10 9.5 L13.5 13.5 L18 6.5" fill="none" stroke="var(--magenta)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>STEAMDB <b>NEXUS</b></span></a>
+</header>
+
+<header class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">Steam app 1502190 &middot; updated 12 Sep 2026, 23:20 UTC</p>
+    <h1>From Space</h1>
+    <p class="description">From Space is a solo and co-op action-shooter for squads up to four players. Take on the challenge of liberating the earth from an alien infestation with your friends, using over-the-top weaponry in a post-apocalyptic world with awesomely stylized graphics. The apocalypse has never been so much fun!</p>
+    <!-- The charts opener sits in the wide column, so its subtitle has room to
+         run to two lines rather than being squeezed under a 340px image. -->
+    <div class="charts-open"><div class="charts-open-copy"><b>History charts</b><span>November 2022 to September 2026</span><label class="go" for="charts-open">Show the detailed charts <span aria-hidden="true">&#8599;</span></label></div><div class="charts-recent" role="group" aria-label="Last 30 days"><span class="charts-recent-title">Last 30 days</span><span class="charts-metric"><b class="down">−0.3</b><small>Gain</small></span><span class="charts-metric"><b class="down">−9.32%</b><small>% gain</small></span><span class="charts-metric"><b>11</b><small>Peak</small></span></div></div>
+  </div>
+  <div class="hero-media">
+    <img loading="lazy" class="header-image" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/header.jpg?t=1747735891" alt="From Space Steam header artwork">
+    <!-- Developer and publisher under the artwork: they belong to the picture
+         more than to the sentence above it, and they were pushing the opener
+         further from the heading it describes. -->
+    <div class="hero-meta"><span>Triangle Studios</span><span>Curve Games</span></div>
+  </div>
+</header>
+
+<div class="news-launch-row"><label class="news-launch" for="news-open"><b>News &amp; announcements</b><span>43 updates</span></label></div><div class="hero-stats"><div class="stat"><b>2</b><span>playing now</span></div><div class="stat"><b>10</b><span>24-hour peak</span></div><div class="stat"><b>3,839</b><span>all-time peak</span></div><div class="stat"><b>2</b><span>average, last 30 days</span></div></div>
+<nav class="header-links" aria-label="Game links"><div class="header-links-grid"><a class="game-link" href="https://store.steampowered.com/app/1502190/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10h18l-2-6H5l-2 6Z"/><path d="M4 10v10h16V10M9 20v-6h6v6M8 4l-1 6m9-6 1 6"/></svg><span>Steam store</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="https://curvegames.com/contact/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 13v-1a8 8 0 0 1 16 0v1M20 16v2a3 3 0 0 1-3 3h-3"/><rect x="3" y="11" width="4" height="7" rx="2"/><rect x="17" y="11" width="4" height="7" rx="2"/></svg><span>Support</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="https://steamcommunity.com/app/1502190/discussions/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 15H7l-4 3V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a3 3 0 0 1-3 3h-2Z"/><path d="M8 18h8l5 3V10M7 7h8M7 11h5"/></svg><span>Steam discussions</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div></nav>
+
+<div class="layout">
+  <main><article class="panel"><div class="information-heading"><h3>Game information</h3><span class="updated-at">Updated <b>12 Sep 2026, 23:20 UTC</b></span></div><dl><div class="fact"><dt>App ID</dt><dd>1502190</dd></div><div class="fact"><dt>Last updated</dt><dd>13 Feb 2024 <span class="quiet">build 13445210</span></dd></div><div class="fact"><dt>Developer</dt><dd>Triangle Studios</dd></div><div class="fact"><dt>Publisher</dt><dd>Curve Games</dd></div><div class="fact"><dt>Release date</dt><dd>3 Nov, 2022</dd></div><div class="fact"><dt>Platforms</dt><dd><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></dd></div><div class="fact"><dt>Download size</dt><dd><span class="plat plat-windows" title="Windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>2.10 GB</span></dd></div><div class="fact"><dt>Install size</dt><dd><span class="plat plat-windows" title="Windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>3.76 GB</span></dd></div><div class="fact"><dt>Genres</dt><dd>Action, Indie</dd></div><div class="fact"><dt>Game modes</dt><dd>Single-player, Multi-player, Co-op, Online Co-op</dd></div><div class="fact"><dt>Controller support</dt><dd>Full</dd></div><div class="fact"><dt>Achievements</dt><dd>41</dd></div></dl><div class="info-more"><label class="go" for="dlc-open">DLC (7) <span aria-hidden="true">&#8599;</span></label><label class="go" for="launch-open">Launch options (1) <span aria-hidden="true">&#8599;</span></label><label class="go" for="saves-open">Cloud saves (1) <span aria-hidden="true">&#8599;</span></label></div></article><article class="panel"><h3>Features &amp; support</h3><div class="feature-section"><h3>Steam features</h3><div class="tags"><span>Steam Achievements</span><span>Steam Trading Cards</span><span>Steam Cloud</span><span>Family Sharing</span></div></div><div class="feature-section"><h3>Controllers &amp; input</h3><div class="tags"><span>Full controller support</span></div></div><div class="feature-section"><h3>Accessibility</h3><div class="tags"><span>Camera Comfort</span><span>Custom Volume Controls</span></div></div></article><article class="panel"><h3>Popular tags</h3><div class="tags"><span>Action</span><span>Co-op</span><span>Online Co-Op</span><span>Top-Down Shooter</span><span>Multiplayer</span><span>Twin Stick Shooter</span><span>Adventure</span><span>Top-Down</span><span>Action-Adventure</span><span>Action RPG</span><span>Shooter</span><span>Looter Shooter</span><span>Team-Based</span><span>Family Friendly</span><span>Atmospheric</span><span>Controller</span><span>Sci-fi</span><span>Funny</span><span>Indie</span><span>Singleplayer</span></div></article><details class="fold about-fold" id="about"><summary><span><b>About this game</b><small>Full description from Steam</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="about-copy">That&#x27;s no bubblegum army, that&#x27;s an endless horde of menacingly pink aliens taking over our planet! Enough sweet talk, grab your gear, we need you and your squad to defeat the pink pests!
+
+YOUR MISSION: Liberate Earth from the Alien horde!
+
+We have an emergency on our hands! Resistance is a high-energy “Horde Mode” where you and your (extremely qualified) team will be deployed into unique locations, completing objectives, while surviving waves of pink life forms that increase in difficulty. It’s down to you to save the world.
+
+Collect Tokens to unlock weapons, items, and perks to boost your stats and build the ultimate loadout based on your playstyle. Complete formidable missions and extract with your squad to gain well-earned experience to level up your character. Additionally, for those that love to flaunt, you can show off your skill to other players in the session with 26 different ranks to work towards! Get out there and make us proud, recruit!
+
+It’s time to save the world! Embark on a journey to meet fellow earthlings that require your assistance, you virtuoso. You’ll be completing a wide range of exciting missions, usually, through chaotic combat, and yes, you have full permission to destroy everything in your path.
+
+While you can play From Space solo (if you&#x27;re brave enough) you&#x27;d be wise to invite some friends to help you out. With online play you can create a four-person squad. Look, there&#x27;s a lot of those pink pests out there so the more people, the better. Oh, and with a squad, you&#x27;ll have some witnesses to tell everyone how awesome you are. It&#x27;s basically a win-win scenario.
+
+With a variety of weapons (Rocket Launchers, Miniguns, Flamethrowers and more!) there’s no excuse not to annihilate those aliens! Build your ideal spec and use tactical items such as grenades and mines, or slow down the hordes with barbed wire and machinegun turrets. Remember to scavenge the world for loot, you&#x27;ll need it!
+
+No matter what type of player you are, there’s a wide range of characters in From Space&#x27;s roster, each with their own unique ability and weapons. Find the perfect balance with your friends as you build the ultimate super squad.
+
+As you level-up, you’ll be able to attach special perks to your character, helping you to master the art of destroying aliens. You&#x27;ll need to find ways to combat increasingly more powerful aliens, and perks will help you accomplish all of your pink alien squashing dreams. Need to rethink your strategy? No problem! We like innovators! Perks can be swapped around, even between your squad!
+
+We’re going to level with you... an alien threat is terrifying, terrifyingly fun! Look, the world is already pretty beat up as it is. Who&#x27;s going to notice if you cause a little bit more destruction while saving the day? People have insurance it&#x27;s fine...</div></div></details><details class="fold" id="content-ratings"><summary><span><b>Content &amp; age ratings</b><small>2 regional ratings</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><section class="rating-list"><h3>Regional ratings</h3><div class="rating-row"><b>DEJUS</b><span>12</span><small>Violência · Interação de Usuários</small></div><div class="rating-row"><b>IGRS</b><span>13</span><small>Kekerasan · Interaksi Daring</small></div></section></div></details><details class="fold" id="requirements"><summary><span><b>System requirements</b><small>Minimum and recommended hardware</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="two"><article class="panel"><h3>Minimum</h3><div class="requirements">Minimum:
+
+Requires a 64-bit processor and operating system
+
+OS: Windows 10
+
+Processor: AMD Phenom II X4 965 (4 * 3400) / Intel Core i5-4670K (4 * 3400) or equivalent
+
+Memory: 8 GB RAM
+
+Graphics: Radeon R7 260X (2048 MB) / GeForce GTX 660  (2048 MB) or equivalent
+
+Storage: 3 GB available space
+
+Sound Card: DirectX® Compatible Sound Card or stronger
+
+Additional Notes: Controller highly recommended</div></article><article class="panel"><h3>Recommended</h3><div class="requirements">Recommended:
+
+Requires a 64-bit processor and operating system
+
+OS: Windows 10
+
+Processor: AMD FX-9590 (8 * 4700) / Intel Core i7-6700 (4 * 3400) or equivalent
+
+Memory: 10 GB RAM
+
+Graphics: Radeon RX 570 (8192 MB) / GeForce GTX 1050 Ti (4096 MB) or equivalent
+
+Storage: 3 GB available space
+
+Sound Card: DirectX® Compatible Sound Card or stronger
+
+Additional Notes: Controller highly recommended. The Recommended Specification listed above allows gameplay experience at 60 FPS on average while using High graphical settings at 1080p resolution</div></article></div><article class="panel"><h3>macOS</h3><div class="requirements">Minimum:
+
+Recommended:</div></article><article class="panel"><h3>Linux</h3><div class="requirements">Minimum:
+
+Recommended:</div></article></div></details><details class="fold" id="languages"><summary><span><b>Supported languages</b><small>12 languages</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><table class="languages"><thead><tr><th>Language</th><th>Full audio</th></tr></thead><tbody><tr><td>English</td><td></td></tr><tr><td>French</td><td></td></tr><tr><td>Italian</td><td></td></tr><tr><td>German</td><td></td></tr><tr><td>Spanish - Spain</td><td></td></tr><tr><td>Portuguese - Brazil</td><td></td></tr><tr><td>Russian</td><td></td></tr><tr><td>Simplified Chinese</td><td></td></tr><tr><td>Korean</td><td></td></tr><tr><td>Polish</td><td></td></tr><tr><td>Traditional Chinese</td><td></td></tr><tr><td>Japanese</td><td></td></tr></tbody></table><p class="muted">A blank audio cell means full audio was not marked in the returned language list.</p></div></details><details class="fold" id="media"><summary><span><b>Screenshots &amp; trailers</b><small>Screenshots and trailers</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="gallery"><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_d8e4e25a610023794663d1f4fc50c0e11c4c81b1.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_d8e4e25a610023794663d1f4fc50c0e11c4c81b1.600x338.jpg?t=1747735891" alt="From Space screenshot 1"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_6290f9d70966ff6914e9c244d7617a924a8c26ac.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_6290f9d70966ff6914e9c244d7617a924a8c26ac.600x338.jpg?t=1747735891" alt="From Space screenshot 2"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ff3a6df60cdc231bd8d1e6066db4ba72766a2983.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ff3a6df60cdc231bd8d1e6066db4ba72766a2983.600x338.jpg?t=1747735891" alt="From Space screenshot 3"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_63d38548a67efa2c4f38cb146c5df96d4641e614.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_63d38548a67efa2c4f38cb146c5df96d4641e614.600x338.jpg?t=1747735891" alt="From Space screenshot 4"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_96390c09085a5caa21ef57b4cfd8816c159bdfbf.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_96390c09085a5caa21ef57b4cfd8816c159bdfbf.600x338.jpg?t=1747735891" alt="From Space screenshot 5"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_d138b082f0d9cbfb53049febdbe2d7233ef77b6d.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_d138b082f0d9cbfb53049febdbe2d7233ef77b6d.600x338.jpg?t=1747735891" alt="From Space screenshot 6"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ce333d0bd833e6626c179eec395a12ba7bf37a72.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ce333d0bd833e6626c179eec395a12ba7bf37a72.600x338.jpg?t=1747735891" alt="From Space screenshot 7"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_16db1af74ba18e5bd3a3f87a5482861ee6e7fc1d.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_16db1af74ba18e5bd3a3f87a5482861ee6e7fc1d.600x338.jpg?t=1747735891" alt="From Space screenshot 8"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ef2cc5773b0ebbcfef7ac0898d57a78c24aeb725.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ef2cc5773b0ebbcfef7ac0898d57a78c24aeb725.600x338.jpg?t=1747735891" alt="From Space screenshot 9"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_58ab55cef039c3d71299cdd9e8b42356346b09c5.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_58ab55cef039c3d71299cdd9e8b42356346b09c5.600x338.jpg?t=1747735891" alt="From Space screenshot 10"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ed3a6f11cbc83cb5e6a8edf00bcc0eb6a27e0b90.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_ed3a6f11cbc83cb5e6a8edf00bcc0eb6a27e0b90.600x338.jpg?t=1747735891" alt="From Space screenshot 11"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_5346e2f4842816074f65f2f106ec0faab2ab1a87.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_5346e2f4842816074f65f2f106ec0faab2ab1a87.600x338.jpg?t=1747735891" alt="From Space screenshot 12"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_15fdd02f94c7b750d943f15a21bdba367a6416ca.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_15fdd02f94c7b750d943f15a21bdba367a6416ca.600x338.jpg?t=1747735891" alt="From Space screenshot 13"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_1221bbc1458130d289ed446fe71f106eb819f47d.1920x1080.jpg?t=1747735891" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1502190/ss_1221bbc1458130d289ed446fe71f106eb819f47d.600x338.jpg?t=1747735891" alt="From Space screenshot 14"></a></div><h3>Trailers</h3><div class="gallery"><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256975431/movie.293x165.jpg?t=1697119379" alt="From Space - Horde Mode - ENG"><p>From Space - Horde Mode - ENG</p><a href="https://store.steampowered.com/app/1502190/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256914181/movie.293x165.jpg?t=1667494781" alt="FS_Multi_Launch_Trailer_OutNow_Unrated_1920x1080_EN"><p>FS_Multi_Launch_Trailer_OutNow_Unrated_1920x1080_EN</p><a href="https://store.steampowered.com/app/1502190/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256908980/movie.293x165.jpg?t=1664814535" alt="FS_Steam_DateReveal_November3rd_1920x1080_PEGI_EN"><p>FS_Steam_DateReveal_November3rd_1920x1080_PEGI_EN</p><a href="https://store.steampowered.com/app/1502190/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256891500/movie.293x165.jpg?t=1655284639" alt="From Space - Wishlist Trailer"><p>From Space - Wishlist Trailer</p><a href="https://store.steampowered.com/app/1502190/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article></div></div></details><details class="fold" id="achievements"><summary><span><b>Achievements</b><small>Total count and selected achievements</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><p class="muted">41 achievements in total.</p><details class="spoilers"><summary>Show selected achievements (may contain spoilers)</summary><div class="achievement-grid"><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Overpowered</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Move out</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Bad luck</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Struck</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Fable</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Silky</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Boring</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Wax</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Power to the people</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1502190/091bfe6bd3d128c40208c96d924b1219e452a130.jpg" alt=""><div><b>Park free</b><small>Achievement</small></div></div></div></details><p><a href="https://steamcommunity.com/stats/1502190/achievements/" target="_blank" rel="noopener noreferrer">View all Steam achievements <span aria-hidden="true">&#8599;</span></a></p></div></details></main>
+  <aside><article class="panel reviews s-mixed"><h3>Steam reviews</h3><div class="review-score">68.0<span>%</span></div><b class="positive">Mixed</b><p class="muted">1,952 reviews</p><div class="meter"><i style="width:68.0327868852459%"></i></div><div class="split"><span>1,328 positive</span><span>624 negative</span></div><div class="rvhist s-mixed"><b>Review trend</b><span class="rv-note">last 24 months</span><span class="rv-bars" role="img" aria-label="Review counts per month for the last 24 months, Oct 2024 to Sep 2026 so far"><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:20.00%"></span></span><em><b>Oct 2024 &middot; <span class="s-good">80.0% positive</span></b>4 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:33.33%"></span></span><em><b>Nov 2024 &middot; <span class="s-mixed">66.7% positive</span></b>2 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:40.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Dec 2024 &middot; <span class="s-good">100.0% positive</span></b>2 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:20.00%"></span></span><em><b>Jan 2025 &middot; <span class="s-good">80.0% positive</span></b>4 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:40.00%"><span class="rv-down" style="height:50.00%"></span></span><em><b>Feb 2025 &middot; <span class="s-mixed">50.0% positive</span></b>1 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:60.00%"></span></span><em><b>Mar 2025 &middot; <span class="s-mixed">40.0% positive</span></b>2 positive, 3 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:80.00%"><span class="rv-down" style="height:25.00%"></span></span><em><b>Apr 2025 &middot; <span class="s-ok">75.0% positive</span></b>3 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:33.33%"></span></span><em><b>May 2025 &middot; <span class="s-mixed">66.7% positive</span></b>2 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:20.00%"></span></span><em><b>Jun 2025 &middot; <span class="s-good">80.0% positive</span></b>4 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:40.00%"><span class="rv-down" style="height:50.00%"></span></span><em><b>Jul 2025 &middot; <span class="s-mixed">50.0% positive</span></b>1 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:33.33%"></span></span><em><b>Aug 2025 &middot; <span class="s-mixed">66.7% positive</span></b>2 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sep 2025 &middot; <span class="s-good">100.0% positive</span></b>3 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:60.00%"></span></span><em><b>Oct 2025 &middot; <span class="s-mixed">40.0% positive</span></b>2 positive, 3 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:20.00%"></span></span><em><b>Nov 2025 &middot; <span class="s-good">80.0% positive</span></b>4 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:40.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Dec 2025 &middot; <span class="s-good">100.0% positive</span></b>2 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jan 2026 &middot; <span class="s-good">100.0% positive</span></b>3 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:20.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Feb 2026 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:80.00%"><span class="rv-down" style="height:25.00%"></span></span><em><b>Mar 2026 &middot; <span class="s-ok">75.0% positive</span></b>3 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:20.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Apr 2026 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:40.00%"><span class="rv-down" style="height:50.00%"></span></span><em><b>May 2026 &middot; <span class="s-mixed">50.0% positive</span></b>1 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:80.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jun 2026 &middot; <span class="s-good">100.0% positive</span></b>4 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:40.00%"><span class="rv-down" style="height:50.00%"></span></span><em><b>Jul 2026 &middot; <span class="s-mixed">50.0% positive</span></b>1 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Aug 2026</b>no reviews</em></span><span class="rv-bar rv-part"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sep 2026 so far</b>no reviews</em></span></span><span class="rv-span"><span>Oct 2024</span><span>Sep 2026 so far</span></span></div><p><a href="https://steamcommunity.com/app/1502190/reviews/" target="_blank" rel="noopener noreferrer">Show the reviews on Steam <span aria-hidden="true">&#8599;</span></a></p></article><article class="panel"><h3>Steam Deck</h3><div class="deck-status">Verified</div><p class="muted"></p><a href="https://store.steampowered.com/app/1502190/" target="_blank" rel="noopener noreferrer">View compatibility on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="panel"><h3>More like this</h3><ul class="related"><li><a class="stay" href="1285190">Borderlands 4</a></li><li><a class="stay" href="2074920">The First Descendant</a></li><li><a class="stay" href="202970">Call of Duty®: Black Ops II</a></li><li><a class="stay" href="3564740">Where Winds Meet</a></li><li><a class="stay" href="2507950">Delta Force</a></li><li><a class="stay" href="292000">No More Room in Hell 2</a></li><li><a class="stay" href="1974050">Torchlight: Infinite</a></li><li><a class="stay" href="2221490">Tom Clancy’s The Division® 2</a></li></ul></article></aside>
+</div>
+
+<input class="modal-toggle" type="checkbox" id="charts-open"><div class="modal"><label class="modal-back" for="charts-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Player history"><label class="modal-x" for="charts-open" aria-label="Close">&times;</label><h2>Player history</h2><p class="sub">From Space &middot; November 2022 to September 2026</p><div class="stats"><div class="stat"><b>2</b><span>playing now</span></div><div class="stat"><b>10</b><span>24-hour peak</span></div><div class="stat"><b>3,839</b><span>all-time peak</span></div><div class="stat"><b>2</b><span>average, last 30 days</span></div></div><section class="panel" id="last30"><h2>The last 30 days</h2><p class="why">Every hourly sample, 218 of them, with the daily peak drawn over the top. The saw-tooth is one day: a peak in the evening, a trough before dawn. 24 sample(s) came back as zero between two live hours and were dropped, so the faint line is broken where they were.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">3</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">6</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">9</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">12</text><text class="xlab" x="74.0" y="286">14 Aug</text><text class="xlab" x="198.0" y="286">19 Aug</text><text class="xlab" x="297.6" y="286">24 Aug</text><text class="xlab" x="412.7" y="286">29 Aug</text><text class="xlab" x="535.7" y="286">03 Sep</text><text class="xlab" x="650.7" y="286">08 Sep</text><path class="hourly" d="M62.0,245.0 L64.6,202.9 L67.1,202.9 L68.6,223.9 L71.0,245.0 L71.5,202.9 L74.0,97.6 L76.7,245.0 L79.4,245.0 L82.2,223.9 L85.0,160.8 L87.7,139.7 L90.3,223.9 L92.9,97.6 L95.5,97.6 L98.1,76.6 L100.4,97.6 L103.3,181.8 L106.2,181.8 L109.1,118.7 L111.9,181.8 L114.6,202.9 L117.3,160.8 L118.7,202.9 L120.3,97.6 L123.1,181.8 L124.6,223.9 L127.6,118.7 L130.5,223.9 L131.1,181.8 L133.9,181.8 L136.6,245.0 L139.1,181.8 L141.7,160.8 L144.4,181.8 L146.7,223.9 L146.9,223.9 L149.7,202.9 L152.6,139.7 L155.3,223.9 L158.0,245.0 L160.3,223.9 L162.9,245.0 L165.4,223.9 L167.7,181.8 L170.4,223.9 M185.9,202.9 L188.4,245.0 L191.1,202.9 L194.0,223.9 L195.2,245.0 L198.0,181.8 L200.8,223.9 L203.4,118.7 L206.0,223.9 L208.5,202.9 L211.1,139.7 L213.8,245.0 L216.6,181.8 L219.5,245.0 L222.4,223.9 L225.2,223.9 L227.8,223.9 L229.5,139.7 L231.9,223.9 L234.5,181.8 L237.5,181.8 L240.4,245.0 L243.4,245.0 L246.3,223.9 L249.1,160.8 L251.8,245.0 L254.5,181.8 L257.2,181.8 L260.1,118.7 L262.9,202.9 L265.9,223.9 L266.4,181.8 L269.3,181.8 L272.1,223.9 L274.9,245.0 L277.6,245.0 L279.2,223.9 L282.1,223.9 L285.0,118.7 L285.5,160.8 L287.9,181.8 L290.9,202.9 L294.8,202.9 L297.6,139.7 M316.9,160.8 L319.5,202.9 L322.1,181.8 L324.6,202.9 L327.0,202.9 L329.6,160.8 L330.7,223.9 L331.6,223.9 L334.5,223.9 L335.5,223.9 L337.5,181.8 L340.1,245.0 M350.8,139.7 L353.6,223.9 L356.7,160.8 L359.6,202.9 L362.5,223.9 M373.9,139.7 L377.0,160.8 L379.9,181.8 L382.9,202.9 M390.7,245.0 L393.3,181.8 L396.0,245.0 L398.9,223.9 L400.4,118.7 L403.5,202.9 L405.2,223.9 L408.0,245.0 L410.0,223.9 L412.7,202.9 M429.6,245.0 L432.5,245.0 L435.3,223.9 L438.2,160.8 L441.1,160.8 L444.2,97.6 M449.9,245.0 L453.0,223.9 L455.8,245.0 M471.3,245.0 L474.2,223.9 L477.0,181.8 L479.8,245.0 L482.5,181.8 L485.2,202.9 L487.9,55.6 L490.1,181.8 L492.8,223.9 L495.6,245.0 L498.2,245.0 M507.9,223.9 L510.3,202.9 L512.9,118.7 L515.6,223.9 L517.3,202.9 M521.4,245.0 L521.8,223.9 L523.5,245.0 L525.9,202.9 L528.2,202.9 L530.5,181.8 L533.1,223.9 L535.7,118.7 L538.3,160.8 L540.9,245.0 L542.3,245.0 L544.7,223.9 L547.0,245.0 L549.3,202.9 L551.4,181.8 L553.7,202.9 L554.4,160.8 L557.0,181.8 L558.7,181.8 M575.5,245.0 L578.0,181.8 L580.8,245.0 L582.0,181.8 L583.6,223.9 L586.4,245.0 L589.2,223.9 L591.9,223.9 L594.6,223.9 L597.3,223.9 L599.6,245.0 L602.5,160.8 L603.1,139.7 L604.2,181.8 L607.0,223.9 L610.0,202.9 L610.5,181.8 M623.7,160.8 L624.2,76.6 L626.9,55.6 L628.8,97.6 L631.8,181.8 L634.7,245.0 L637.5,223.9 M647.8,202.9 L650.7,34.5 L653.4,202.9 M664.7,118.7 L666.5,245.0 L668.9,181.8 L671.6,139.7 M684.8,245.0 L687.1,223.9 M691.6,223.9 L694.2,223.9 L696.8,245.0 L698.7,223.9 L701.3,245.0 L703.8,245.0 M711.2,245.0 L713.6,202.9 L716.1,245.0 L718.7,202.9 L720.7,245.0 L723.5,245.0 L726.3,245.0 L728.9,245.0 M733.2,223.9 L735.1,202.9 L737.7,55.6 L740.4,160.8 L743.1,181.8 L746.0,223.9"/><path class="area" d="M74.0,97.6 C82.1,90.6 90.1,76.3 98.1,76.6 C105.5,76.9 112.9,89.3 120.3,97.6 C131.0,109.8 141.8,117.7 152.6,139.7 C157.6,150.0 162.6,181.8 167.7,181.8 C177.8,181.8 187.9,181.8 198.0,181.8 C199.8,181.8 201.6,123.0 203.4,118.7 C212.1,97.7 220.8,139.5 229.5,139.7 C239.7,140.0 249.9,118.7 260.1,118.7 C268.4,118.7 276.7,118.7 285.0,118.7 C289.2,118.7 293.4,133.9 297.6,139.7 C304.0,148.6 310.4,159.3 316.9,160.8 C328.2,163.4 339.5,139.7 350.8,139.7 C358.5,139.7 366.2,139.7 373.9,139.7 C382.8,139.7 391.6,97.6 400.4,118.7 C404.5,128.5 408.6,195.7 412.7,202.9 C423.2,221.0 433.7,40.1 444.2,97.6 C447.1,113.8 450.0,209.9 453.0,223.9 C464.6,279.4 476.3,68.9 487.9,55.6 C496.2,46.1 504.6,118.7 512.9,118.7 C520.5,118.7 528.1,118.7 535.7,118.7 C541.9,118.7 548.2,151.0 554.4,160.8 C562.3,173.1 570.2,184.9 578.0,181.8 C586.4,178.5 594.7,161.5 603.1,139.7 C611.0,119.0 618.9,69.3 626.9,55.6 C634.8,41.8 642.7,18.6 650.7,34.5 C655.3,43.9 660.0,93.7 664.7,118.7 C672.2,158.7 679.6,215.1 687.1,223.9 C695.9,234.2 704.8,221.2 713.6,202.9 C721.6,186.1 729.7,104.7 737.7,55.6 L737.7,266.0 L74.0,266.0 Z"/><path class="line-avg" d="M74.0,97.6 C82.1,90.6 90.1,76.3 98.1,76.6 C105.5,76.9 112.9,89.3 120.3,97.6 C131.0,109.8 141.8,117.7 152.6,139.7 C157.6,150.0 162.6,181.8 167.7,181.8 C177.8,181.8 187.9,181.8 198.0,181.8 C199.8,181.8 201.6,123.0 203.4,118.7 C212.1,97.7 220.8,139.5 229.5,139.7 C239.7,140.0 249.9,118.7 260.1,118.7 C268.4,118.7 276.7,118.7 285.0,118.7 C289.2,118.7 293.4,133.9 297.6,139.7 C304.0,148.6 310.4,159.3 316.9,160.8 C328.2,163.4 339.5,139.7 350.8,139.7 C358.5,139.7 366.2,139.7 373.9,139.7 C382.8,139.7 391.6,97.6 400.4,118.7 C404.5,128.5 408.6,195.7 412.7,202.9 C423.2,221.0 433.7,40.1 444.2,97.6 C447.1,113.8 450.0,209.9 453.0,223.9 C464.6,279.4 476.3,68.9 487.9,55.6 C496.2,46.1 504.6,118.7 512.9,118.7 C520.5,118.7 528.1,118.7 535.7,118.7 C541.9,118.7 548.2,151.0 554.4,160.8 C562.3,173.1 570.2,184.9 578.0,181.8 C586.4,178.5 594.7,161.5 603.1,139.7 C611.0,119.0 618.9,69.3 626.9,55.6 C634.8,41.8 642.7,18.6 650.7,34.5 C655.3,43.9 660.0,93.7 664.7,118.7 C672.2,158.7 679.6,215.1 687.1,223.9 C695.9,234.2 704.8,221.2 713.6,202.9 C721.6,186.1 729.7,104.7 737.7,55.6"/><circle class="dot" cx="74.0" cy="97.6" r="3"/><circle class="dot" cx="98.1" cy="76.6" r="3"/><circle class="dot" cx="120.3" cy="97.6" r="3"/><circle class="dot" cx="152.6" cy="139.7" r="3"/><circle class="dot" cx="167.7" cy="181.8" r="3"/><circle class="dot" cx="198.0" cy="181.8" r="3"/><circle class="dot" cx="203.4" cy="118.7" r="3"/><circle class="dot" cx="229.5" cy="139.7" r="3"/><circle class="dot" cx="260.1" cy="118.7" r="3"/><circle class="dot" cx="285.0" cy="118.7" r="3"/><circle class="dot" cx="297.6" cy="139.7" r="3"/><circle class="dot" cx="316.9" cy="160.8" r="3"/><circle class="dot" cx="350.8" cy="139.7" r="3"/><circle class="dot" cx="373.9" cy="139.7" r="3"/><circle class="dot" cx="400.4" cy="118.7" r="3"/><circle class="dot" cx="412.7" cy="202.9" r="3"/><circle class="dot" cx="444.2" cy="97.6" r="3"/><circle class="dot" cx="453.0" cy="223.9" r="3"/><circle class="dot" cx="487.9" cy="55.6" r="3"/><circle class="dot" cx="512.9" cy="118.7" r="3"/><circle class="dot" cx="535.7" cy="118.7" r="3"/><circle class="dot" cx="554.4" cy="160.8" r="3"/><circle class="dot" cx="578.0" cy="181.8" r="3"/><circle class="dot" cx="603.1" cy="139.7" r="3"/><circle class="dot" cx="626.9" cy="55.6" r="3"/><circle class="dot" cx="650.7" cy="34.5" r="3"/><circle class="dot" cx="664.7" cy="118.7" r="3"/><circle class="dot" cx="687.1" cy="223.9" r="3"/><circle class="dot" cx="713.6" cy="202.9" r="3"/><circle class="dot" cx="737.7" cy="55.6" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:3.1680%"><em><b>14 Aug 2026</b>8 peak</em></span><span class="hv" style="left:11.3259%;width:3.0424%"><em><b>15 Aug 2026</b>9 peak</em></span><span class="hv" style="left:14.3683%;width:3.5806%"><em><b>16 Aug 2026</b>8 peak</em></span><span class="hv" style="left:17.9489%;width:3.1187%"><em><b>17 Aug 2026</b>6 peak</em></span><span class="hv" style="left:21.0676%;width:2.9924%"><em><b>18 Aug 2026</b>4 peak</em></span><span class="hv" style="left:24.0600%;width:2.3532%"><em><b>19 Aug 2026</b>4 peak</em></span><span class="hv" style="left:26.4132%;width:2.0679%"><em><b>20 Aug 2026</b>7 peak</em></span><span class="hv" style="left:28.4811%;width:3.7248%"><em><b>21 Aug 2026</b>6 peak</em></span><span class="hv" style="left:32.2059%;width:3.6541%"><em><b>22 Aug 2026</b>7 peak</em></span><span class="hv" style="left:35.8600%;width:2.4696%"><em><b>23 Aug 2026</b>7 peak</em></span><span class="hv" style="left:38.3296%;width:2.0942%"><em><b>24 Aug 2026</b>6 peak</em></span><span class="hv" style="left:40.4238%;width:3.4990%"><em><b>25 Aug 2026</b>5 peak</em></span><span class="hv" style="left:43.9228%;width:3.7558%"><em><b>26 Aug 2026</b>6 peak</em></span><span class="hv" style="left:47.6787%;width:3.2650%"><em><b>27 Aug 2026</b>6 peak</em></span><span class="hv" style="left:50.9436%;width:2.5526%"><em><b>28 Aug 2026</b>7 peak</em></span><span class="hv" style="left:53.4962%;width:2.8789%"><em><b>29 Aug 2026</b>3 peak</em></span><span class="hv" style="left:56.3751%;width:2.6463%"><em><b>30 Aug 2026</b>8 peak</em></span><span class="hv" style="left:59.0214%;width:2.8800%"><em><b>31 Aug 2026</b>2 peak</em></span><span class="hv" style="left:61.9014%;width:3.9403%"><em><b>01 Sep 2026</b>10 peak</em></span><span class="hv" style="left:65.8417%;width:3.1393%"><em><b>02 Sep 2026</b>7 peak</em></span><span class="hv" style="left:68.9809%;width:2.7361%"><em><b>03 Sep 2026</b>7 peak</em></span><span class="hv" style="left:71.7170%;width:2.7872%"><em><b>04 Sep 2026</b>5 peak</em></span><span class="hv" style="left:74.5042%;width:3.1977%"><em><b>05 Sep 2026</b>4 peak</em></span><span class="hv" style="left:77.7019%;width:3.2146%"><em><b>06 Sep 2026</b>6 peak</em></span><span class="hv" style="left:80.9165%;width:3.1317%"><em><b>07 Sep 2026</b>10 peak</em></span><span class="hv" style="left:84.0481%;width:2.4863%"><em><b>08 Sep 2026</b>11 peak</em></span><span class="hv" style="left:86.5344%;width:2.4001%"><em><b>09 Sep 2026</b>7 peak</em></span><span class="hv" style="left:88.9345%;width:3.2174%"><em><b>10 Sep 2026</b>2 peak</em></span><span class="hv" style="left:92.1520%;width:3.3278%"><em><b>11 Sep 2026</b>3 peak</em></span><span class="hv" style="left:95.4798%;width:2.6781%"><em><b>12 Sep 2026</b>10 peak</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Daily peak</span><span><i style="background:var(--peak)"></i>Every hourly sample</span></div></section><section class="panel"><h2>All time</h2><p class="why">47 months, November 2022 to September 2026. The highest number of people in the game at once, each month, on a time axis -- a gap in the record stays a gap.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players by month, all time" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">1k</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">2k</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">3k</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">4k</text><text class="xlab" x="62.0" y="286">Nov 2022</text><text class="xlab" x="165.6" y="286">Jun 2023</text><text class="xlab" x="270.1" y="286">Jan 2024</text><text class="xlab" x="374.2" y="286">Aug 2024</text><text class="xlab" x="477.8" y="286">Mar 2025</text><text class="xlab" x="582.3" y="286">Oct 2025</text><text class="xlab" x="685.9" y="286">May 2026</text><path class="area" d="M62.0,34.5 C66.9,104.8 71.8,237.1 76.7,245.4 C81.7,254.0 86.8,253.6 91.8,254.1 C96.9,254.5 101.9,259.9 106.9,258.2 C111.5,256.6 116.1,245.5 120.6,245.2 C125.7,244.8 130.7,257.1 135.8,257.4 C140.7,257.6 145.5,257.1 150.4,257.1 C155.5,257.1 160.5,257.1 165.6,258.0 C170.5,258.9 175.3,262.3 180.2,262.9 C185.3,263.5 190.3,261.7 195.4,261.6 C200.4,261.5 205.5,261.6 210.5,260.5 C215.4,259.4 220.3,243.4 225.2,243.5 C230.2,243.7 235.3,259.4 240.3,262.0 C245.2,264.4 250.1,259.1 255.0,258.9 C260.0,258.7 265.1,260.2 270.1,260.9 C275.2,261.5 280.2,263.1 285.3,262.9 C290.0,262.8 294.7,260.3 299.4,260.3 C304.5,260.3 309.5,262.6 314.6,263.2 C319.5,263.8 324.4,264.1 329.2,263.9 C334.3,263.7 339.3,262.1 344.4,262.1 C349.3,262.0 354.2,263.2 359.1,263.5 C364.1,263.9 369.1,264.3 374.2,264.3 C379.2,264.3 384.3,263.5 389.3,263.5 C394.2,263.5 399.1,264.1 404.0,264.2 C409.0,264.3 414.1,264.3 419.1,264.4 C424.0,264.5 428.9,264.7 433.8,264.7 C438.9,264.7 443.9,264.6 448.9,264.4 C454.0,264.3 459.0,263.8 464.1,263.9 C468.7,264.0 473.2,264.8 477.8,264.9 C482.8,265.0 487.9,264.7 492.9,264.4 C497.8,264.2 502.7,263.5 507.6,263.5 C512.6,263.6 517.7,264.7 522.7,264.9 C527.6,265.0 532.5,265.0 537.4,265.0 C542.4,265.0 547.5,264.7 552.5,264.7 C557.6,264.7 562.6,265.0 567.7,265.0 C572.6,265.0 577.4,264.8 582.3,264.9 C587.4,264.9 592.4,265.1 597.5,265.2 C602.4,265.3 607.2,265.4 612.1,265.3 C617.2,265.3 622.2,265.0 627.3,265.0 C632.3,265.0 637.4,265.2 642.4,265.2 C647.0,265.3 651.5,265.3 656.1,265.3 C661.2,265.3 666.2,265.3 671.2,265.2 C676.1,265.2 681.0,264.9 685.9,264.9 C691.0,264.9 696.0,265.1 701.1,265.1 C705.9,265.1 710.8,265.1 715.7,265.2 C720.8,265.2 725.8,265.4 730.9,265.4 C735.9,265.4 741.0,265.4 746.0,265.3 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,34.5 C66.9,104.8 71.8,237.1 76.7,245.4 C81.7,254.0 86.8,253.6 91.8,254.1 C96.9,254.5 101.9,259.9 106.9,258.2 C111.5,256.6 116.1,245.5 120.6,245.2 C125.7,244.8 130.7,257.1 135.8,257.4 C140.7,257.6 145.5,257.1 150.4,257.1 C155.5,257.1 160.5,257.1 165.6,258.0 C170.5,258.9 175.3,262.3 180.2,262.9 C185.3,263.5 190.3,261.7 195.4,261.6 C200.4,261.5 205.5,261.6 210.5,260.5 C215.4,259.4 220.3,243.4 225.2,243.5 C230.2,243.7 235.3,259.4 240.3,262.0 C245.2,264.4 250.1,259.1 255.0,258.9 C260.0,258.7 265.1,260.2 270.1,260.9 C275.2,261.5 280.2,263.1 285.3,262.9 C290.0,262.8 294.7,260.3 299.4,260.3 C304.5,260.3 309.5,262.6 314.6,263.2 C319.5,263.8 324.4,264.1 329.2,263.9 C334.3,263.7 339.3,262.1 344.4,262.1 C349.3,262.0 354.2,263.2 359.1,263.5 C364.1,263.9 369.1,264.3 374.2,264.3 C379.2,264.3 384.3,263.5 389.3,263.5 C394.2,263.5 399.1,264.1 404.0,264.2 C409.0,264.3 414.1,264.3 419.1,264.4 C424.0,264.5 428.9,264.7 433.8,264.7 C438.9,264.7 443.9,264.6 448.9,264.4 C454.0,264.3 459.0,263.8 464.1,263.9 C468.7,264.0 473.2,264.8 477.8,264.9 C482.8,265.0 487.9,264.7 492.9,264.4 C497.8,264.2 502.7,263.5 507.6,263.5 C512.6,263.6 517.7,264.7 522.7,264.9 C527.6,265.0 532.5,265.0 537.4,265.0 C542.4,265.0 547.5,264.7 552.5,264.7 C557.6,264.7 562.6,265.0 567.7,265.0 C572.6,265.0 577.4,264.8 582.3,264.9 C587.4,264.9 592.4,265.1 597.5,265.2 C602.4,265.3 607.2,265.4 612.1,265.3 C617.2,265.3 622.2,265.0 627.3,265.0 C632.3,265.0 637.4,265.2 642.4,265.2 C647.0,265.3 651.5,265.3 656.1,265.3 C661.2,265.3 666.2,265.3 671.2,265.2 C676.1,265.2 681.0,264.9 685.9,264.9 C691.0,264.9 696.0,265.1 701.1,265.1 C705.9,265.1 710.8,265.1 715.7,265.2 C720.8,265.2 725.8,265.4 730.9,265.4 C735.9,265.4 741.0,265.4 746.0,265.3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:0.9643%"><em><b>Nov 2022</b>3,839 monthly peak</em></span><span class="hv" style="left:9.1222%;width:1.9607%"><em><b>Dec 2022</b>341 monthly peak</em></span><span class="hv" style="left:11.0829%;width:1.9929%"><em><b>Jan 2023</b>198 monthly peak</em></span><span class="hv" style="left:13.0758%;width:1.8964%"><em><b>Feb 2023</b>130 monthly peak</em></span><span class="hv" style="left:14.9722%;width:1.8964%"><em><b>Mar 2023</b>345 monthly peak</em></span><span class="hv" style="left:16.8686%;width:1.9607%"><em><b>Apr 2023</b>143 monthly peak</em></span><span class="hv" style="left:18.8293%;width:1.9607%"><em><b>May 2023</b>147 monthly peak</em></span><span class="hv" style="left:20.7900%;width:1.9607%"><em><b>Jun 2023</b>132 monthly peak</em></span><span class="hv" style="left:22.7508%;width:1.9607%"><em><b>Jul 2023</b>52 monthly peak</em></span><span class="hv" style="left:24.7115%;width:1.9929%"><em><b>Aug 2023</b>73 monthly peak</em></span><span class="hv" style="left:26.7043%;width:1.9607%"><em><b>Sep 2023</b>92 monthly peak</em></span><span class="hv" style="left:28.6650%;width:1.9607%"><em><b>Oct 2023</b>373 monthly peak</em></span><span class="hv" style="left:30.6258%;width:1.9607%"><em><b>Nov 2023</b>67 monthly peak</em></span><span class="hv" style="left:32.5865%;width:1.9607%"><em><b>Dec 2023</b>117 monthly peak</em></span><span class="hv" style="left:34.5472%;width:1.9929%"><em><b>Jan 2024</b>85 monthly peak</em></span><span class="hv" style="left:36.5400%;width:1.9286%"><em><b>Feb 2024</b>51 monthly peak</em></span><span class="hv" style="left:38.4686%;width:1.9286%"><em><b>Mar 2024</b>95 monthly peak</em></span><span class="hv" style="left:40.3972%;width:1.9607%"><em><b>Apr 2024</b>46 monthly peak</em></span><span class="hv" style="left:42.3579%;width:1.9607%"><em><b>May 2024</b>35 monthly peak</em></span><span class="hv" style="left:44.3186%;width:1.9607%"><em><b>Jun 2024</b>65 monthly peak</em></span><span class="hv" style="left:46.2793%;width:1.9607%"><em><b>Jul 2024</b>41 monthly peak</em></span><span class="hv" style="left:48.2400%;width:1.9929%"><em><b>Aug 2024</b>29 monthly peak</em></span><span class="hv" style="left:50.2329%;width:1.9607%"><em><b>Sep 2024</b>41 monthly peak</em></span><span class="hv" style="left:52.1936%;width:1.9607%"><em><b>Oct 2024</b>30 monthly peak</em></span><span class="hv" style="left:54.1543%;width:1.9607%"><em><b>Nov 2024</b>27 monthly peak</em></span><span class="hv" style="left:56.1150%;width:1.9607%"><em><b>Dec 2024</b>21 monthly peak</em></span><span class="hv" style="left:58.0758%;width:1.9929%"><em><b>Jan 2025</b>26 monthly peak</em></span><span class="hv" style="left:60.0686%;width:1.8964%"><em><b>Feb 2025</b>35 monthly peak</em></span><span class="hv" style="left:61.9650%;width:1.8964%"><em><b>Mar 2025</b>18 monthly peak</em></span><span class="hv" style="left:63.8615%;width:1.9607%"><em><b>Apr 2025</b>26 monthly peak</em></span><span class="hv" style="left:65.8222%;width:1.9607%"><em><b>May 2025</b>41 monthly peak</em></span><span class="hv" style="left:67.7829%;width:1.9607%"><em><b>Jun 2025</b>19 monthly peak</em></span><span class="hv" style="left:69.7436%;width:1.9607%"><em><b>Jul 2025</b>16 monthly peak</em></span><span class="hv" style="left:71.7043%;width:1.9929%"><em><b>Aug 2025</b>21 monthly peak</em></span><span class="hv" style="left:73.6972%;width:1.9607%"><em><b>Sep 2025</b>17 monthly peak</em></span><span class="hv" style="left:75.6579%;width:1.9607%"><em><b>Oct 2025</b>19 monthly peak</em></span><span class="hv" style="left:77.6186%;width:1.9607%"><em><b>Nov 2025</b>13 monthly peak</em></span><span class="hv" style="left:79.5793%;width:1.9607%"><em><b>Dec 2025</b>11 monthly peak</em></span><span class="hv" style="left:81.5400%;width:1.9929%"><em><b>Jan 2026</b>17 monthly peak</em></span><span class="hv" style="left:83.5329%;width:1.8964%"><em><b>Feb 2026</b>13 monthly peak</em></span><span class="hv" style="left:85.4293%;width:1.8964%"><em><b>Mar 2026</b>12 monthly peak</em></span><span class="hv" style="left:87.3258%;width:1.9607%"><em><b>Apr 2026</b>13 monthly peak</em></span><span class="hv" style="left:89.2865%;width:1.9607%"><em><b>May 2026</b>18 monthly peak</em></span><span class="hv" style="left:91.2472%;width:1.9607%"><em><b>Jun 2026</b>15 monthly peak</em></span><span class="hv" style="left:93.2079%;width:1.9607%"><em><b>Jul 2026</b>14 monthly peak</em></span><span class="hv" style="left:95.1686%;width:1.9929%"><em><b>Aug 2026</b>10 monthly peak</em></span><span class="hv" style="left:97.1615%;width:0.9964%"><em><b>Sep 2026</b>11 monthly peak</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Monthly peak</span></div></section><section class="panel"><h2>The last four months</h2><p class="why">The highest number of people in the game at once, each month. Four, because four is as far back as the source keeps anything finer than one figure a month.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players by month" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">4</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">8</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">12</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">16</text><text class="xlab" x="62.0" y="286">June 2026</text><text class="xlab" x="290.0" y="286">July 2026</text><text class="xlab" x="518.0" y="286">August 2026</text><text class="xlab" x="746.0" y="286">September 2026</text><path class="area" d="M62.0,34.5 C138.0,39.7 214.0,37.1 290.0,50.0 C366.0,62.8 442.0,104.0 518.0,111.7 C594.0,119.4 670.0,101.4 746.0,96.2 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,34.5 C138.0,39.7 214.0,37.1 290.0,50.0 C366.0,62.8 442.0,104.0 518.0,111.7 C594.0,119.4 670.0,101.4 746.0,96.2"/><circle class="dot" cx="62.0" cy="34.5" r="5"/><circle class="dot" cx="290.0" cy="50.0" r="5"/><circle class="dot" cx="518.0" cy="111.7" r="5"/><circle class="dot" cx="746.0" cy="96.2" r="5"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:15.0000%"><em><b>June 2026</b>15 peak — daily detail below</em></span><span class="hv" style="left:23.1579%;width:30.0000%"><em><b>July 2026</b>14 peak — daily detail below</em></span><span class="hv" style="left:53.1579%;width:30.0000%"><em><b>August 2026</b>10 peak — hourly detail below</em></span><span class="hv" style="left:83.1579%;width:15.0000%"><em><b>September 2026</b>11 peak — daily detail below</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Monthly peak</span><span><i class="ring"></i>Has finer data below</span></div></section><input class="mpick" type="radio" name="month" id="r-2026-06"><input class="mpick" type="radio" name="month" id="r-2026-07"><input class="mpick" type="radio" name="month" id="r-2026-08"><input class="mpick" type="radio" name="month" id="r-2026-09" checked><div class="tabs"><span class="tabs-label">Open a month:</span><div class="tab-row"><label class="tab" for="r-2026-06">June 2026</label><label class="tab" for="r-2026-07">July 2026</label><label class="tab" for="r-2026-08">August 2026</label><label class="tab" for="r-2026-09">September 2026</label></div></div><div class="panes"><section class="pane p-2026-06"><h3>June 2026</h3><p class="why">17 days, each one the highest figure that day. The source keeps no hourly detail this far back.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">4</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">8</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">12</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">16</text><text class="xlab" x="62.0" y="286">01 Jun</text><text class="xlab" x="415.8" y="286">16 Jun</text><text class="xlab" x="463.0" y="286">18 Jun</text><text class="xlab" x="510.1" y="286">20 Jun</text><text class="xlab" x="557.3" y="286">22 Jun</text><text class="xlab" x="604.5" y="286">24 Jun</text><text class="xlab" x="651.7" y="286">26 Jun</text><text class="xlab" x="698.8" y="286">28 Jun</text><text class="xlab" x="746.0" y="286">30 Jun</text><path class="area" d="M62.0,34.5 C172.1,96.2 282.1,219.7 392.2,219.7 C400.1,219.7 407.9,219.7 415.8,219.7 C423.7,219.7 431.5,237.7 439.4,235.1 C447.2,232.6 455.1,219.7 463.0,204.3 C470.8,188.8 478.7,155.4 486.6,142.5 C494.4,129.7 502.3,127.1 510.1,127.1 C518.0,127.1 525.9,142.5 533.7,142.5 C541.6,142.5 549.4,142.5 557.3,142.5 C565.2,142.5 573.0,124.5 580.9,127.1 C588.8,129.7 596.6,145.1 604.5,158.0 C612.3,170.8 620.2,201.5 628.1,204.3 C635.9,207.0 643.8,204.0 651.7,188.8 C659.5,173.7 667.4,48.6 675.2,34.5 C683.1,20.4 691.0,43.7 698.8,50.0 C706.7,56.2 714.6,75.7 722.4,96.2 C730.3,116.8 738.1,147.7 746.0,173.4 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,34.5 C172.1,96.2 282.1,219.7 392.2,219.7 C400.1,219.7 407.9,219.7 415.8,219.7 C423.7,219.7 431.5,237.7 439.4,235.1 C447.2,232.6 455.1,219.7 463.0,204.3 C470.8,188.8 478.7,155.4 486.6,142.5 C494.4,129.7 502.3,127.1 510.1,127.1 C518.0,127.1 525.9,142.5 533.7,142.5 C541.6,142.5 549.4,142.5 557.3,142.5 C565.2,142.5 573.0,124.5 580.9,127.1 C588.8,129.7 596.6,145.1 604.5,158.0 C612.3,170.8 620.2,201.5 628.1,204.3 C635.9,207.0 643.8,204.0 651.7,188.8 C659.5,173.7 667.4,48.6 675.2,34.5 C683.1,20.4 691.0,43.7 698.8,50.0 C706.7,56.2 714.6,75.7 722.4,96.2 C730.3,116.8 738.1,147.7 746.0,173.4"/><circle class="dot" cx="62.0" cy="34.5" r="3"/><circle class="dot" cx="392.2" cy="219.7" r="3"/><circle class="dot" cx="415.8" cy="219.7" r="3"/><circle class="dot" cx="439.4" cy="235.1" r="3"/><circle class="dot" cx="463.0" cy="204.3" r="3"/><circle class="dot" cx="486.6" cy="142.5" r="3"/><circle class="dot" cx="510.1" cy="127.1" r="3"/><circle class="dot" cx="533.7" cy="142.5" r="3"/><circle class="dot" cx="557.3" cy="142.5" r="3"/><circle class="dot" cx="580.9" cy="127.1" r="3"/><circle class="dot" cx="604.5" cy="158.0" r="3"/><circle class="dot" cx="628.1" cy="204.3" r="3"/><circle class="dot" cx="651.7" cy="188.8" r="3"/><circle class="dot" cx="675.2" cy="34.5" r="3"/><circle class="dot" cx="698.8" cy="50.0" r="3"/><circle class="dot" cx="722.4" cy="96.2" r="3"/><circle class="dot" cx="746.0" cy="173.4" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:21.7241%"><em><b>01 Jun 2026</b>15 peak</em></span><span class="hv" style="left:29.8820%;width:23.2759%"><em><b>15 Jun 2026</b>3 peak</em></span><span class="hv" style="left:53.1579%;width:3.1034%"><em><b>16 Jun 2026</b>3 peak</em></span><span class="hv" style="left:56.2613%;width:3.1034%"><em><b>17 Jun 2026</b>2 peak</em></span><span class="hv" style="left:59.3648%;width:3.1034%"><em><b>18 Jun 2026</b>4 peak</em></span><span class="hv" style="left:62.4682%;width:3.1034%"><em><b>19 Jun 2026</b>8 peak</em></span><span class="hv" style="left:65.5717%;width:3.1034%"><em><b>20 Jun 2026</b>9 peak</em></span><span class="hv" style="left:68.6751%;width:3.1034%"><em><b>21 Jun 2026</b>8 peak</em></span><span class="hv" style="left:71.7786%;width:3.1034%"><em><b>22 Jun 2026</b>8 peak</em></span><span class="hv" style="left:74.8820%;width:3.1034%"><em><b>23 Jun 2026</b>9 peak</em></span><span class="hv" style="left:77.9855%;width:3.1034%"><em><b>24 Jun 2026</b>7 peak</em></span><span class="hv" style="left:81.0889%;width:3.1034%"><em><b>25 Jun 2026</b>4 peak</em></span><span class="hv" style="left:84.1924%;width:3.1034%"><em><b>26 Jun 2026</b>5 peak</em></span><span class="hv" style="left:87.2958%;width:3.1034%"><em><b>27 Jun 2026</b>15 peak</em></span><span class="hv" style="left:90.3993%;width:3.1034%"><em><b>28 Jun 2026</b>14 peak</em></span><span class="hv" style="left:93.5027%;width:3.1034%"><em><b>29 Jun 2026</b>11 peak</em></span><span class="hv" style="left:96.6062%;width:1.5517%"><em><b>30 Jun 2026</b>6 peak</em></span></span></div></section><section class="pane p-2026-07"><h3>July 2026</h3><p class="why">29 days, each one the highest figure that day. The source keeps no hourly detail this far back. 1 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">4</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">8</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">11</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">15</text><text class="xlab" x="62.0" y="286">03 Jul</text><text class="xlab" x="159.7" y="286">07 Jul</text><text class="xlab" x="257.4" y="286">11 Jul</text><text class="xlab" x="355.1" y="286">15 Jul</text><text class="xlab" x="452.9" y="286">19 Jul</text><text class="xlab" x="550.6" y="286">23 Jul</text><text class="xlab" x="648.3" y="286">27 Jul</text><text class="xlab" x="746.0" y="286">31 Jul</text><path class="area" d="M62.0,67.6 C70.1,89.6 78.3,133.7 86.4,133.7 C94.6,133.7 102.7,133.7 110.9,133.7 C119.0,133.7 127.1,133.7 135.3,133.7 C143.4,133.7 151.6,106.2 159.7,117.2 C167.9,128.2 176.0,197.1 184.1,199.9 C192.3,202.6 200.4,125.5 208.6,133.7 C216.7,142.0 224.9,246.7 233.0,249.5 C241.1,252.2 249.3,186.1 257.4,150.3 C265.6,114.4 273.7,40.0 281.9,34.5 C290.0,29.0 298.1,89.6 306.3,117.2 C314.4,144.7 322.6,191.6 330.7,199.9 C338.9,208.1 347.0,166.8 355.1,166.8 C363.3,166.8 371.4,199.9 379.6,199.9 C387.7,199.9 395.9,199.9 404.0,199.9 C412.1,199.9 420.3,188.8 428.4,183.3 C436.6,177.8 444.7,166.8 452.9,166.8 C461.0,166.8 469.1,183.3 477.3,183.3 C485.4,183.3 493.6,172.3 501.7,166.8 C509.9,161.3 518.0,155.8 526.1,150.3 C534.3,144.7 542.4,133.7 550.6,133.7 C558.7,133.7 566.9,153.0 575.0,150.3 C583.1,147.5 591.3,125.5 599.4,117.2 C607.6,108.9 615.7,95.1 623.9,100.7 C632.0,106.2 640.1,144.7 648.3,150.3 C656.4,155.8 664.6,125.5 672.7,133.7 C680.9,142.0 689.0,191.6 697.1,199.9 C705.3,208.1 713.4,191.6 721.6,183.3 C729.7,175.1 737.9,161.3 746.0,150.3 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,67.6 C70.1,89.6 78.3,133.7 86.4,133.7 C94.6,133.7 102.7,133.7 110.9,133.7 C119.0,133.7 127.1,133.7 135.3,133.7 C143.4,133.7 151.6,106.2 159.7,117.2 C167.9,128.2 176.0,197.1 184.1,199.9 C192.3,202.6 200.4,125.5 208.6,133.7 C216.7,142.0 224.9,246.7 233.0,249.5 C241.1,252.2 249.3,186.1 257.4,150.3 C265.6,114.4 273.7,40.0 281.9,34.5 C290.0,29.0 298.1,89.6 306.3,117.2 C314.4,144.7 322.6,191.6 330.7,199.9 C338.9,208.1 347.0,166.8 355.1,166.8 C363.3,166.8 371.4,199.9 379.6,199.9 C387.7,199.9 395.9,199.9 404.0,199.9 C412.1,199.9 420.3,188.8 428.4,183.3 C436.6,177.8 444.7,166.8 452.9,166.8 C461.0,166.8 469.1,183.3 477.3,183.3 C485.4,183.3 493.6,172.3 501.7,166.8 C509.9,161.3 518.0,155.8 526.1,150.3 C534.3,144.7 542.4,133.7 550.6,133.7 C558.7,133.7 566.9,153.0 575.0,150.3 C583.1,147.5 591.3,125.5 599.4,117.2 C607.6,108.9 615.7,95.1 623.9,100.7 C632.0,106.2 640.1,144.7 648.3,150.3 C656.4,155.8 664.6,125.5 672.7,133.7 C680.9,142.0 689.0,191.6 697.1,199.9 C705.3,208.1 713.4,191.6 721.6,183.3 C729.7,175.1 737.9,161.3 746.0,150.3"/><circle class="dot" cx="62.0" cy="67.6" r="3"/><circle class="dot" cx="86.4" cy="133.7" r="3"/><circle class="dot" cx="110.9" cy="133.7" r="3"/><circle class="dot" cx="135.3" cy="133.7" r="3"/><circle class="dot" cx="159.7" cy="117.2" r="3"/><circle class="dot" cx="184.1" cy="199.9" r="3"/><circle class="dot" cx="208.6" cy="133.7" r="3"/><circle class="dot" cx="233.0" cy="249.5" r="3"/><circle class="dot" cx="257.4" cy="150.3" r="3"/><circle class="dot" cx="281.9" cy="34.5" r="3"/><circle class="dot" cx="306.3" cy="117.2" r="3"/><circle class="dot" cx="330.7" cy="199.9" r="3"/><circle class="dot" cx="355.1" cy="166.8" r="3"/><circle class="dot" cx="379.6" cy="199.9" r="3"/><circle class="dot" cx="404.0" cy="199.9" r="3"/><circle class="dot" cx="428.4" cy="183.3" r="3"/><circle class="dot" cx="452.9" cy="166.8" r="3"/><circle class="dot" cx="477.3" cy="183.3" r="3"/><circle class="dot" cx="501.7" cy="166.8" r="3"/><circle class="dot" cx="526.1" cy="150.3" r="3"/><circle class="dot" cx="550.6" cy="133.7" r="3"/><circle class="dot" cx="575.0" cy="150.3" r="3"/><circle class="dot" cx="599.4" cy="117.2" r="3"/><circle class="dot" cx="623.9" cy="100.7" r="3"/><circle class="dot" cx="648.3" cy="150.3" r="3"/><circle class="dot" cx="672.7" cy="133.7" r="3"/><circle class="dot" cx="697.1" cy="199.9" r="3"/><circle class="dot" cx="721.6" cy="183.3" r="3"/><circle class="dot" cx="746.0" cy="150.3" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:1.6071%"><em><b>03 Jul 2026</b>12 peak</em></span><span class="hv" style="left:9.7650%;width:3.2143%"><em><b>04 Jul 2026</b>8 peak</em></span><span class="hv" style="left:12.9793%;width:3.2143%"><em><b>05 Jul 2026</b>8 peak</em></span><span class="hv" style="left:16.1936%;width:3.2143%"><em><b>06 Jul 2026</b>8 peak</em></span><span class="hv" style="left:19.4079%;width:3.2143%"><em><b>07 Jul 2026</b>9 peak</em></span><span class="hv" style="left:22.6222%;width:3.2143%"><em><b>08 Jul 2026</b>4 peak</em></span><span class="hv" style="left:25.8365%;width:3.2143%"><em><b>09 Jul 2026</b>8 peak</em></span><span class="hv" style="left:29.0508%;width:3.2143%"><em><b>10 Jul 2026</b>1 peak</em></span><span class="hv" style="left:32.2650%;width:3.2143%"><em><b>11 Jul 2026</b>7 peak</em></span><span class="hv" style="left:35.4793%;width:3.2143%"><em><b>12 Jul 2026</b>14 peak</em></span><span class="hv" style="left:38.6936%;width:3.2143%"><em><b>13 Jul 2026</b>9 peak</em></span><span class="hv" style="left:41.9079%;width:3.2143%"><em><b>14 Jul 2026</b>4 peak</em></span><span class="hv" style="left:45.1222%;width:3.2143%"><em><b>15 Jul 2026</b>6 peak</em></span><span class="hv" style="left:48.3365%;width:3.2143%"><em><b>16 Jul 2026</b>4 peak</em></span><span class="hv" style="left:51.5508%;width:3.2143%"><em><b>17 Jul 2026</b>4 peak</em></span><span class="hv" style="left:54.7650%;width:3.2143%"><em><b>18 Jul 2026</b>5 peak</em></span><span class="hv" style="left:57.9793%;width:3.2143%"><em><b>19 Jul 2026</b>6 peak</em></span><span class="hv" style="left:61.1936%;width:3.2143%"><em><b>20 Jul 2026</b>5 peak</em></span><span class="hv" style="left:64.4079%;width:3.2143%"><em><b>21 Jul 2026</b>6 peak</em></span><span class="hv" style="left:67.6222%;width:3.2143%"><em><b>22 Jul 2026</b>7 peak</em></span><span class="hv" style="left:70.8365%;width:3.2143%"><em><b>23 Jul 2026</b>8 peak</em></span><span class="hv" style="left:74.0508%;width:3.2143%"><em><b>24 Jul 2026</b>7 peak</em></span><span class="hv" style="left:77.2650%;width:3.2143%"><em><b>25 Jul 2026</b>9 peak</em></span><span class="hv" style="left:80.4793%;width:3.2143%"><em><b>26 Jul 2026</b>10 peak</em></span><span class="hv" style="left:83.6936%;width:3.2143%"><em><b>27 Jul 2026</b>7 peak</em></span><span class="hv" style="left:86.9079%;width:3.2143%"><em><b>28 Jul 2026</b>8 peak</em></span><span class="hv" style="left:90.1222%;width:3.2143%"><em><b>29 Jul 2026</b>4 peak</em></span><span class="hv" style="left:93.3365%;width:3.2143%"><em><b>30 Jul 2026</b>5 peak</em></span><span class="hv" style="left:96.5508%;width:1.6071%"><em><b>31 Jul 2026</b>7 peak</em></span></span></div></section><section class="pane p-2026-08"><h3>August 2026</h3><p class="why">28 days as the curve, each the highest figure that day. Behind it, 130 hourly samples from 14 Aug, which is as far back as the source keeps every hour. 14 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">3</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">5</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">8</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">11</text><text class="xlab" x="62.0" y="286">01 Aug</text><text class="xlab" x="197.9" y="286">07 Aug</text><text class="xlab" x="288.4" y="286">11 Aug</text><text class="xlab" x="414.1" y="286">16 Aug</text><text class="xlab" x="496.4" y="286">20 Aug</text><text class="xlab" x="589.5" y="286">24 Aug</text><text class="xlab" x="691.2" y="286">28 Aug</text><path class="hourly" d="M356.5,242.9 L359.0,196.6 L361.5,196.6 L363.0,219.7 L365.4,242.9 L365.9,196.6 L368.4,80.8 L371.0,242.9 L373.7,242.9 L376.5,219.7 L379.2,150.3 L381.9,127.1 L384.5,219.7 L387.0,80.8 L389.6,80.8 L392.2,57.7 L394.5,80.8 L397.4,173.4 L400.2,173.4 L403.1,104.0 L405.8,173.4 L408.6,196.6 L411.2,150.3 L412.6,196.6 L414.1,80.8 L416.9,173.4 L418.4,219.7 L421.4,104.0 L424.3,219.7 L424.8,173.4 L427.6,173.4 L430.2,242.9 L432.8,173.4 L435.3,150.3 L438.0,173.4 L440.2,219.7 L440.4,219.7 L443.3,196.6 L446.1,127.1 L448.8,219.7 L451.5,242.9 L453.8,219.7 L456.3,242.9 L458.8,219.7 L461.0,173.4 L463.7,219.7 M479.1,196.6 L481.5,242.9 L484.2,196.6 L487.1,219.7 L488.2,242.9 L491.1,173.4 L493.8,219.7 L496.4,104.0 L498.9,219.7 L501.4,196.6 L503.9,127.1 L506.6,242.9 L509.4,173.4 L512.3,242.9 L515.2,219.7 L517.9,219.7 L520.5,219.7 L522.1,127.1 L524.6,219.7 L527.1,173.4 L530.0,173.4 L533.0,242.9 L535.9,242.9 L538.8,219.7 L541.6,150.3 L544.2,242.9 L546.9,173.4 L549.6,173.4 L552.4,104.0 L555.2,196.6 L558.2,219.7 L558.6,173.4 L561.5,173.4 L564.3,219.7 L567.0,242.9 L569.7,242.9 L571.3,219.7 L574.2,219.7 L577.1,104.0 L577.5,150.3 L579.9,173.4 L582.9,196.6 L586.7,196.6 L589.5,127.1 M608.6,150.3 L611.2,196.6 L613.7,173.4 L616.2,196.6 L618.6,196.6 L621.2,150.3 L622.3,219.7 L623.1,219.7 L626.0,219.7 L627.0,219.7 L628.9,173.4 L631.5,242.9 M642.1,127.1 L644.9,219.7 L648.0,150.3 L650.8,196.6 L653.7,219.7 M665.0,127.1 L668.0,150.3 L671.0,173.4 L673.9,196.6 M681.6,242.9 L684.2,173.4 L686.8,242.9 L689.7,219.7 L691.2,104.0 L694.3,196.6 L695.9,219.7 L698.7,242.9 L700.7,219.7 L703.4,196.6 M720.1,242.9 L723.0,242.9 L725.8,219.7 L728.6,150.3 L731.5,150.3 L734.5,80.8 M740.1,242.9 L743.2,219.7 L746.0,242.9"/><path class="area" d="M62.0,150.3 C77.1,119.4 92.2,57.7 107.3,57.7 C114.8,57.7 122.4,57.7 129.9,57.7 C137.5,57.7 145.0,69.2 152.6,80.8 C167.7,104.0 182.8,204.3 197.9,173.4 C205.4,158.0 213.0,42.2 220.5,34.5 C228.1,26.8 235.6,119.4 243.2,127.1 C250.7,134.8 258.3,84.7 265.8,80.8 C273.4,77.0 280.9,94.3 288.4,104.0 C303.5,123.3 318.6,182.0 333.7,173.4 C345.3,166.8 356.8,101.8 368.4,80.8 C376.3,66.3 384.3,57.3 392.2,57.7 C399.5,58.0 406.8,71.7 414.1,80.8 C424.8,94.2 435.4,102.9 446.1,127.1 C451.0,138.4 456.0,173.4 461.0,173.4 C471.0,173.4 481.0,173.4 491.1,173.4 C492.8,173.4 494.6,108.7 496.4,104.0 C505.0,80.8 513.6,126.9 522.1,127.1 C532.2,127.4 542.3,104.0 552.4,104.0 C560.6,104.0 568.8,104.0 577.1,104.0 C581.2,104.0 585.4,120.7 589.5,127.1 C595.9,136.9 602.2,148.6 608.6,150.3 C619.7,153.2 630.9,127.1 642.1,127.1 C649.7,127.1 657.4,127.1 665.0,127.1 C673.7,127.1 682.5,80.8 691.2,104.0 C695.3,114.8 699.3,188.7 703.4,196.6 C713.8,216.6 724.1,17.5 734.5,80.8 C737.4,98.6 740.3,173.4 743.2,219.7 L743.2,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,150.3 C77.1,119.4 92.2,57.7 107.3,57.7 C114.8,57.7 122.4,57.7 129.9,57.7 C137.5,57.7 145.0,69.2 152.6,80.8 C167.7,104.0 182.8,204.3 197.9,173.4 C205.4,158.0 213.0,42.2 220.5,34.5 C228.1,26.8 235.6,119.4 243.2,127.1 C250.7,134.8 258.3,84.7 265.8,80.8 C273.4,77.0 280.9,94.3 288.4,104.0 C303.5,123.3 318.6,182.0 333.7,173.4 C345.3,166.8 356.8,101.8 368.4,80.8 C376.3,66.3 384.3,57.3 392.2,57.7 C399.5,58.0 406.8,71.7 414.1,80.8 C424.8,94.2 435.4,102.9 446.1,127.1 C451.0,138.4 456.0,173.4 461.0,173.4 C471.0,173.4 481.0,173.4 491.1,173.4 C492.8,173.4 494.6,108.7 496.4,104.0 C505.0,80.8 513.6,126.9 522.1,127.1 C532.2,127.4 542.3,104.0 552.4,104.0 C560.6,104.0 568.8,104.0 577.1,104.0 C581.2,104.0 585.4,120.7 589.5,127.1 C595.9,136.9 602.2,148.6 608.6,150.3 C619.7,153.2 630.9,127.1 642.1,127.1 C649.7,127.1 657.4,127.1 665.0,127.1 C673.7,127.1 682.5,80.8 691.2,104.0 C695.3,114.8 699.3,188.7 703.4,196.6 C713.8,216.6 724.1,17.5 734.5,80.8 C737.4,98.6 740.3,173.4 743.2,219.7"/><circle class="dot" cx="62.0" cy="150.3" r="3"/><circle class="dot" cx="107.3" cy="57.7" r="3"/><circle class="dot" cx="129.9" cy="57.7" r="3"/><circle class="dot" cx="152.6" cy="80.8" r="3"/><circle class="dot" cx="197.9" cy="173.4" r="3"/><circle class="dot" cx="220.5" cy="34.5" r="3"/><circle class="dot" cx="243.2" cy="127.1" r="3"/><circle class="dot" cx="265.8" cy="80.8" r="3"/><circle class="dot" cx="288.4" cy="104.0" r="3"/><circle class="dot" cx="333.7" cy="173.4" r="3"/><circle class="dot" cx="368.4" cy="80.8" r="3"/><circle class="dot" cx="392.2" cy="57.7" r="3"/><circle class="dot" cx="414.1" cy="80.8" r="3"/><circle class="dot" cx="446.1" cy="127.1" r="3"/><circle class="dot" cx="461.0" cy="173.4" r="3"/><circle class="dot" cx="491.1" cy="173.4" r="3"/><circle class="dot" cx="496.4" cy="104.0" r="3"/><circle class="dot" cx="522.1" cy="127.1" r="3"/><circle class="dot" cx="552.4" cy="104.0" r="3"/><circle class="dot" cx="577.1" cy="104.0" r="3"/><circle class="dot" cx="589.5" cy="127.1" r="3"/><circle class="dot" cx="608.6" cy="150.3" r="3"/><circle class="dot" cx="642.1" cy="127.1" r="3"/><circle class="dot" cx="665.0" cy="127.1" r="3"/><circle class="dot" cx="691.2" cy="104.0" r="3"/><circle class="dot" cx="703.4" cy="196.6" r="3"/><circle class="dot" cx="734.5" cy="80.8" r="3"/><circle class="dot" cx="743.2" cy="219.7" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:2.9796%"><em><b>01 Aug 2026</b>5 peak</em></span><span class="hv" style="left:11.1375%;width:4.4693%"><em><b>03 Aug 2026</b>9 peak</em></span><span class="hv" style="left:15.6068%;width:2.9796%"><em><b>04 Aug 2026</b>9 peak</em></span><span class="hv" style="left:18.5864%;width:4.4693%"><em><b>05 Aug 2026</b>8 peak</em></span><span class="hv" style="left:23.0557%;width:4.4693%"><em><b>07 Aug 2026</b>4 peak</em></span><span class="hv" style="left:27.5251%;width:2.9796%"><em><b>08 Aug 2026</b>10 peak</em></span><span class="hv" style="left:30.5046%;width:2.9796%"><em><b>09 Aug 2026</b>6 peak</em></span><span class="hv" style="left:33.4842%;width:2.9796%"><em><b>10 Aug 2026</b>8 peak</em></span><span class="hv" style="left:36.4638%;width:4.4693%"><em><b>11 Aug 2026</b>7 peak</em></span><span class="hv" style="left:40.9331%;width:5.2586%"><em><b>13 Aug 2026</b>4 peak</em></span><span class="hv" style="left:46.1917%;width:3.8488%"><em><b>14 Aug 2026</b>8 peak</em></span><span class="hv" style="left:50.0405%;width:3.0092%"><em><b>15 Aug 2026</b>9 peak</em></span><span class="hv" style="left:53.0496%;width:3.5414%"><em><b>16 Aug 2026</b>8 peak</em></span><span class="hv" style="left:56.5911%;width:3.0846%"><em><b>17 Aug 2026</b>6 peak</em></span><span class="hv" style="left:59.6756%;width:2.9597%"><em><b>18 Aug 2026</b>4 peak</em></span><span class="hv" style="left:62.6353%;width:2.3275%"><em><b>19 Aug 2026</b>4 peak</em></span><span class="hv" style="left:64.9628%;width:2.0453%"><em><b>20 Aug 2026</b>7 peak</em></span><span class="hv" style="left:67.0081%;width:3.6841%"><em><b>21 Aug 2026</b>6 peak</em></span><span class="hv" style="left:70.6922%;width:3.6141%"><em><b>22 Aug 2026</b>7 peak</em></span><span class="hv" style="left:74.3063%;width:2.4426%"><em><b>23 Aug 2026</b>7 peak</em></span><span class="hv" style="left:76.7489%;width:2.0713%"><em><b>24 Aug 2026</b>6 peak</em></span><span class="hv" style="left:78.8201%;width:3.4607%"><em><b>25 Aug 2026</b>5 peak</em></span><span class="hv" style="left:82.2809%;width:3.7148%"><em><b>26 Aug 2026</b>6 peak</em></span><span class="hv" style="left:85.9956%;width:3.2293%"><em><b>27 Aug 2026</b>6 peak</em></span><span class="hv" style="left:89.2249%;width:2.5247%"><em><b>28 Aug 2026</b>7 peak</em></span><span class="hv" style="left:91.7496%;width:2.8474%"><em><b>29 Aug 2026</b>3 peak</em></span><span class="hv" style="left:94.5969%;width:2.6174%"><em><b>30 Aug 2026</b>8 peak</em></span><span class="hv" style="left:97.2143%;width:0.9436%"><em><b>31 Aug 2026</b>2 peak</em></span></span></div></section><section class="pane p-2026-09"><h3>September 2026</h3><p class="why">12 days, each one the highest figure that day. The source keeps no hourly detail this far back. 11 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">3</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">6</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">9</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">12</text><text class="xlab" x="62.0" y="286">01 Sep</text><text class="xlab" x="192.7" y="286">03 Sep</text><text class="xlab" x="308.7" y="286">05 Sep</text><text class="xlab" x="442.5" y="286">07 Sep</text><text class="xlab" x="546.0" y="286">09 Sep</text><text class="xlab" x="679.9" y="286">11 Sep</text><path class="area" d="M62.0,55.6 C84.7,76.6 107.5,118.7 130.2,118.7 C151.1,118.7 171.9,118.7 192.7,118.7 C209.8,118.7 227.0,151.0 244.1,160.8 C265.6,173.1 287.2,184.9 308.7,181.8 C331.5,178.5 354.4,161.5 377.2,139.7 C399.0,119.0 420.7,69.3 442.5,55.6 C464.2,41.8 485.9,18.6 507.6,34.5 C520.4,43.9 533.2,93.7 546.0,118.7 C566.5,158.7 587.0,215.1 607.5,223.9 C631.6,234.2 655.8,221.2 679.9,202.9 C701.9,186.1 724.0,104.7 746.0,55.6 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,55.6 C84.7,76.6 107.5,118.7 130.2,118.7 C151.1,118.7 171.9,118.7 192.7,118.7 C209.8,118.7 227.0,151.0 244.1,160.8 C265.6,173.1 287.2,184.9 308.7,181.8 C331.5,178.5 354.4,161.5 377.2,139.7 C399.0,119.0 420.7,69.3 442.5,55.6 C464.2,41.8 485.9,18.6 507.6,34.5 C520.4,43.9 533.2,93.7 546.0,118.7 C566.5,158.7 587.0,215.1 607.5,223.9 C631.6,234.2 655.8,221.2 679.9,202.9 C701.9,186.1 724.0,104.7 746.0,55.6"/><circle class="dot" cx="62.0" cy="55.6" r="3"/><circle class="dot" cx="130.2" cy="118.7" r="3"/><circle class="dot" cx="192.7" cy="118.7" r="3"/><circle class="dot" cx="244.1" cy="160.8" r="3"/><circle class="dot" cx="308.7" cy="181.8" r="3"/><circle class="dot" cx="377.2" cy="139.7" r="3"/><circle class="dot" cx="442.5" cy="55.6" r="3"/><circle class="dot" cx="507.6" cy="34.5" r="3"/><circle class="dot" cx="546.0" cy="118.7" r="3"/><circle class="dot" cx="607.5" cy="223.9" r="3"/><circle class="dot" cx="679.9" cy="202.9" r="3"/><circle class="dot" cx="746.0" cy="55.6" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:4.4900%"><em><b>01 Sep 2026</b>10 peak</em></span><span class="hv" style="left:12.6479%;width:8.5965%"><em><b>02 Sep 2026</b>7 peak</em></span><span class="hv" style="left:21.2444%;width:7.4925%"><em><b>03 Sep 2026</b>7 peak</em></span><span class="hv" style="left:28.7368%;width:7.6324%"><em><b>04 Sep 2026</b>5 peak</em></span><span class="hv" style="left:36.3692%;width:8.7564%"><em><b>05 Sep 2026</b>4 peak</em></span><span class="hv" style="left:45.1257%;width:8.8028%"><em><b>06 Sep 2026</b>6 peak</em></span><span class="hv" style="left:53.9285%;width:8.5758%"><em><b>07 Sep 2026</b>10 peak</em></span><span class="hv" style="left:62.5042%;width:6.8084%"><em><b>08 Sep 2026</b>11 peak</em></span><span class="hv" style="left:69.3127%;width:6.5724%"><em><b>09 Sep 2026</b>7 peak</em></span><span class="hv" style="left:75.8851%;width:8.8105%"><em><b>10 Sep 2026</b>2 peak</em></span><span class="hv" style="left:84.6956%;width:9.1129%"><em><b>11 Sep 2026</b>3 peak</em></span><span class="hv" style="left:93.8085%;width:4.3494%"><em><b>12 Sep 2026</b>10 peak</em></span></span></div></section></div><footer>Nothing here is interpolated or estimated; where a sample is missing the line is broken.</footer></div></div><input class="modal-toggle" type="checkbox" id="news-open"><div class="modal"><label class="modal-back" for="news-open" aria-label="Close"></label><div class="modal-box tl-box modal-tall" role="dialog" aria-modal="true" aria-label="News and announcements"><label class="modal-x" for="news-open" aria-label="Close">&times;</label><h2>News &amp; announcements</h2><p class="sub">From Space &middot; 43 developer announcements, May 2021 to Mar 2024 &middot; times in UTC</p><input class="tl-pick" type="radio" name="tl-year" id="tl-y0" checked><input class="tl-pick" type="radio" name="tl-year" id="tl-y1"><input class="tl-pick" type="radio" name="tl-year" id="tl-y2"><input class="tl-pick" type="radio" name="tl-year" id="tl-y3"><div class="tl-tabs"><label for="tl-y0">2024<b>2</b></label><label for="tl-y1">2023<b>15</b></label><label for="tl-y2">2022<b>21</b></label><label for="tl-y3">2021<b>5</b></label></div><div class="tl modal-scroll"><section class="tl-year tl-s0"><div class="tl-month"><h3>March</h3><ol class="tl-list"><li class="tl-item"><time datetime="2024-03-01T17:49:11+00:00">1 Mar<i>17:49</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5688680204374487990" target="_blank" rel="noopener noreferrer">From Space: Resistance Bundle Available Now! <span aria-hidden="true">&#8599;</span></a><p>Specialists, We have some earth-shattering news for you today! We’ve just launched the From Space: Resistance bundle. This package is bursting at the seams with action-packed content that will keep you running back to the front lines to…</p><small>Curve_Ben</small></div></li></ol></div><div class="tl-month"><h3>February</h3><ol class="tl-list"><li class="tl-item is-patch"><time datetime="2024-02-13T16:23:56+00:00">13 Feb<i>16:23</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5589599109283930451" target="_blank" rel="noopener noreferrer">13/02/2024 - Patch Notes <span aria-hidden="true">&#8599;</span></a><p>pecialists! We have small update to share with you following a range of fixes and improvements we&#x27;ve made to the game. Fixed an issue when attempting to change the weapon for certain specialist classes would trigger the steam overlay to…</p><small>Patch notes</small></div></li></ol></div></section><section class="tl-year tl-s1"><div class="tl-month"><h3>December</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-12-21T17:50:47+00:00">21 Dec<i>17:50</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5410576585130666616" target="_blank" rel="noopener noreferrer">Curve Games Winter Sale <span aria-hidden="true">&#8599;</span></a><p>{STEAM_CLAN_IMAGE}/33019968/77c89a352e938b5480604340cdadb9faafa30efa.gif As the days grow shorter and the cold breeze becoming a daily routine, winter has officially arrived and with it, our Winter Sale! This is the perfect season to cozy…</p><small>Missile Trajectory</small></div></li></ol></div><div class="tl-month"><h3>November</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-11-21T15:06:25+00:00">21 Nov<i>15:06</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5382426458970204223" target="_blank" rel="noopener noreferrer">Operation: Clear Skies DLC – Out Now! <span aria-hidden="true">&#8599;</span></a><p>Attention, Specialists! We have received communications from the Commander. They’re requesting a hit squad of alien-busting Specialists to take on a secret mission - ‘Operation: Clear Skies’. Gorgonville is a shanty settlement of survivors.…</p><small>Curve_Ben</small></div></li></ol></div><div class="tl-month"><h3>October</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-10-12T14:04:24+00:00">12 Oct<i>14:04</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6438516944120641052" target="_blank" rel="noopener noreferrer">Brand new ‘Horde Mode’ update live + 2 new DLCs! <span aria-hidden="true">&#8599;</span></a><p>Specialists! Brace yourselves for an exhilarating new challenge as we proudly present Resistance: Fight the Invasion, an action-packed, free “Horde Mode” update that will take you and your squad on entirely new adventures. Embark on daring…</p><small>Curve_Ben</small></div></li></ol></div><div class="tl-month"><h3>August</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-08-24T17:20:33+00:00">24 Aug<i>17:20</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5141475722327734044" target="_blank" rel="noopener noreferrer">Free ‘Horde Mode’ and map packs coming soon <span aria-hidden="true">&#8599;</span></a><p>Attention, Specialists! We have a red alert situation on our hands. No, this isn’t a training drill. Watch the skies. Stock up on ammo. Warn your friends and prepare yourselves! The aliens are now visiting Earth in larger numbers. We need…</p><small>Curve_Ben</small></div></li></ol></div><div class="tl-month"><h3>June</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-06-29T16:52:01+00:00">29 Jun<i>16:52</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5124582150131331937" target="_blank" rel="noopener noreferrer">Summer Sale 2023 <span aria-hidden="true">&#8599;</span></a><p>Summer has arrived, bringing with it the warmth of sunshine and the excitement of this sizzling Summer Sale! As the days get longer and the temperature rises, there&#x27;s no better time to dive into some thrilling gaming adventures and enjoy…</p><small>Missile Trajectory</small></div></li><li class="tl-item"><time datetime="2023-06-08T17:10:16+00:00">8 Jun<i>17:10</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5129083846339588926" target="_blank" rel="noopener noreferrer">Celebrate Ocean Day! <span aria-hidden="true">&#8599;</span></a><p>Celebrate Ocean Day with Curve Games and WDC! If you missed some great deals during our publisher sale, don’t worry, you can still take advantage of this fantastic sale and help Whale and Dolphin Conservation to protect these remarkable…</p><small>Missile Trajectory</small></div></li></ol></div><div class="tl-month"><h3>May</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-05-25T17:03:39+00:00">25 May<i>17:03</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5151600576588637773" target="_blank" rel="noopener noreferrer">Curve Games Publisher Sale 2023. Grab a free game on us <span aria-hidden="true">&#8599;</span></a><p>{STEAM_CLAN_IMAGE}/33019968/39c85717dcb8912cd031be17d2087f8d4e87cdc6.png Enjoy up to 90% off on a wide range of titles like Human: Fall Flat, The Ascent, From Space, Golf Gang, Patch Quest, and more! Including our latest release, Blooming…</p><small>Missile Trajectory</small></div></li><li class="tl-item"><time datetime="2023-05-25T17:03:27+00:00">25 May<i>17:03</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5151600576588637255" target="_blank" rel="noopener noreferrer">Introducing 2 new free Specialists and an exclusive Steam Deck boot video <span aria-hidden="true">&#8599;</span></a><p>Specialists, Two new recruits are joining our ranks: the Grenadier is a Defensive class and the Scientist is a Support class, each with their new perks, items, and Specialist weapon! Grenadier Alain Moulin used to be a prison guard in a…</p><small>Missile Trajectory</small></div></li></ol></div><div class="tl-month"><h3>March</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-03-16T17:22:31+00:00">16 Mar<i>17:22</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5125698536854531996" target="_blank" rel="noopener noreferrer">Curve Games Spring Sale is here! <span aria-hidden="true">&#8599;</span></a><p>{STEAM_CLAN_IMAGE}/29825757/7fca6a684ffb18a81f871782dc03a314e75afaac.png Spring is in the air, and so is the excitement of our amazing Spring Sale at Curve Games! The season of renewal and growth has arrived, and what better way to…</p><small>Missile Trajectory</small></div></li><li class="tl-item"><time datetime="2023-03-16T15:02:29+00:00">16 Mar<i>15:02</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5125698536854176910" target="_blank" rel="noopener noreferrer">2 new Specialists available to play now! <span aria-hidden="true">&#8599;</span></a><p>New recruits are joining our ranks to fight against the pink menace! Let us introduce you to Jill &amp; John. The Scout is an offensive class, each with their new perks, items, and Specialist weapon. Jill Ripley is a former sprinting champion…</p><small>Missile Trajectory</small></div></li></ol></div><div class="tl-month"><h3>February</h3><ol class="tl-list"><li class="tl-item is-patch"><time datetime="2023-02-09T16:51:02+00:00">9 Feb<i>16:51</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5036749277230048018" target="_blank" rel="noopener noreferrer">09/02/2023 Hotfix - Build 1.1.1556 <span aria-hidden="true">&#8599;</span></a><p>Fixed an issue where the “Active Threat” text is not displayed in certain languages, when the ‘Large Text size’ option is enabled Fixed an issue where overlapping text was displayed on the “You are eliminated” screen whilst playing in…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2023-02-06T18:22:49+00:00">6 Feb<i>18:22</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5035622743895319480" target="_blank" rel="noopener noreferrer">Play the From Space Demo Today! <span aria-hidden="true">&#8599;</span></a><p>Specialists, The From Space demo is back! And it’s all shiny and new with the many improvements we’ve made to the full game. The demo is available now for a limited time. Play through a section of the Powerplant level and take out the alien…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2023-02-02T17:01:28+00:00">2 Feb<i>17:01</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5035622743880534715" target="_blank" rel="noopener noreferrer">From Space Patch Notes – Patch 6 – Multiplayer Lobby and more! <span aria-hidden="true">&#8599;</span></a><p>Attention, Specialists! We’re back and we’re happy to announce our latest and biggest patch yet! Not only does Patch 6 include multiple improvements and fixes, it also includes a Multiplayer Lobby! Please find our From Space Patch Notes for…</p><small>CosmicRaccoon</small></div></li></ol></div><div class="tl-month"><h3>January</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-01-16T17:57:14+00:00">16 Jan<i>17:57</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5035620840546342682" target="_blank" rel="noopener noreferrer">East Meets West Game Fest <span aria-hidden="true">&#8599;</span></a><p>The time has come for East to meet West, join us in celebrating video games from across the globe. We are thrilled to announce for a limited time only (16-23 Jan) you can find amazing Curve Games titles included in up to 8 bundles during…</p><small>Missile Trajectory</small></div></li><li class="tl-item is-patch"><time datetime="2023-01-05T14:36:30+00:00">5 Jan<i>14:36</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5000716037493616753" target="_blank" rel="noopener noreferrer">05/01/2023 Hotfix – Save Progression Multiple Devices <span aria-hidden="true">&#8599;</span></a><p>Happy New Year! We hope you had some great time with family and friends! We wanted to give a quick update for players experiencing save game progression issues across multiple devices on Steam. We’ve rolled out a fix which means your save…</p><small>Patch notes</small></div></li></ol></div></section><section class="tl-year tl-s2"><div class="tl-month"><h3>December</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-12-22T17:59:15+00:00">22 Dec<i>17:59</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5000716037443116911" target="_blank" rel="noopener noreferrer">Curve Game Winter Sale is here! <span aria-hidden="true">&#8599;</span></a><p>There is nothing better than staying cozy indoors and getting the most out of this Winter Sale; make yourself comfortable and enjoy up to 90% discount on all Curve Games catalogue.…</p><small>Missile Trajectory</small></div></li><li class="tl-item"><time datetime="2022-12-20T16:58:57+00:00">20 Dec<i>16:58</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5623338145769544232" target="_blank" rel="noopener noreferrer">From Space Patch Notes – Patch 5 – Steam Deck Verified! <span aria-hidden="true">&#8599;</span></a><p>Specialists, Please find our From Space Patch Notes for Patch 5 below: Improvements Revamped the way the game saves progress: Save data will now be split into two separate sections, Progression save data and World save data. The Progression…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-12-13T17:59:31+00:00">13 Dec<i>17:59</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4980448574127562059" target="_blank" rel="noopener noreferrer">From Space Holiday Outfits are here! <span aria-hidden="true">&#8599;</span></a><p>Specialists! It’s that time of year, and although our planet is currently under threat, there’s still time to celebrate, thanks to our resilient resistance! Change your Specialists&#x27; style in-game with 6 unique Holiday themed outfits! Who…</p><small>Missile Trajectory</small></div></li><li class="tl-item"><time datetime="2022-12-08T17:01:05+00:00">8 Dec<i>17:01</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4980448574109191083" target="_blank" rel="noopener noreferrer">From Space Patch Notes – Patch 4 <span aria-hidden="true">&#8599;</span></a><p>Specialists, Please find our From Space Patch Notes for Patch 4 below: Improvements Updated our multiplayer code/infrastructure to improve network quality and stability Note: This also lays down the foundations for our future plans on…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-12-05T18:09:06+00:00">5 Dec<i>18:09</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4979322040032042209" target="_blank" rel="noopener noreferrer">The Apocalypse has never been so Isometric! <span aria-hidden="true">&#8599;</span></a><p>Specialists, the Isometric sale is on! Day 33 of the invasion, our resistance is strong, but we still have work to do to save our planet! If an isometric top-down shooter, loaded with different weapons and a wide range of characters is your…</p><small>CosmicRaccoon</small></div></li></ol></div><div class="tl-month"><h3>November</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-11-30T17:00:25+00:00">30 Nov<i>17:00</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4979322040013646075" target="_blank" rel="noopener noreferrer">Community Update 2 - Dev Q &amp; A <span aria-hidden="true">&#8599;</span></a><p>Hello, Specialists! This week we’ll be hitting our first month of launch on From Space! Time flies! During this time, your feedback and support have been instrumental in helping us shape the future of From Space. To date, we’ve released 3…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-11-28T14:01:02+00:00">28 Nov<i>14:01</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4836332027670107121" target="_blank" rel="noopener noreferrer">From Space Patch Notes – Patch 3 <span aria-hidden="true">&#8599;</span></a><p>Specialists, Please find our From Space Patch Notes for Patch 3 below: Improvements A “Catch Up” feature has been added allowing lower level players joining a higher level player session to level at an accelerated rate Polish localisation…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-11-22T18:00:57+00:00">22 Nov<i>18:00</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4836332027648873493" target="_blank" rel="noopener noreferrer">From Space – Outstanding Visual Style! <span aria-hidden="true">&#8599;</span></a><p>From Space bursts onto your screen like an eruption of retrofuturism presented in bright neon colors. The pink, gooey Alien invaders emit a glow that is instantly recognizable. Defeat them with a broad range of weapons, each dealing a…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-11-17T17:01:42+00:00">17 Nov<i>17:01</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4789043687474623292" target="_blank" rel="noopener noreferrer">From Space Patch Notes – Patch 2 <span aria-hidden="true">&#8599;</span></a><p>Specialists, Please find our From Space Patch Notes for Patch 2 below: Improvements Autosave – Progression now autosaves when you are no longer in combat. If KIA, the player will respawn at their last manually saved Safe Zone. Mission…</p><small>CosmicRaccoon</small></div></li><li class="tl-item is-patch"><time datetime="2022-11-11T13:39:43+00:00">11 Nov<i>13:39</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6368680725424748676" target="_blank" rel="noopener noreferrer">11/11/2022 Hotfix - Build 1.0.1214 <span aria-hidden="true">&#8599;</span></a><p>Fixed an issue where NPC buddies would be eliminated immediately after being incapacitated, instead of allowing the player to revive them.</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2022-11-10T18:11:38+00:00">10 Nov<i>18:11</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6368680725421792443" target="_blank" rel="noopener noreferrer">From Space Patch Notes – Patch 1 <span aria-hidden="true">&#8599;</span></a><p>Specialists, Please find our From Space Patch Notes for Patch 1 below: Improvements Tutorial messages will now appear after combat when it is safe A waypoint marker is available to guide players to the “Inner Crater” Single-player sessions…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-11-07T18:54:28+00:00">7 Nov<i>18:54</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4732747437217384985" target="_blank" rel="noopener noreferrer">Community Update – Feedback Next Steps <span aria-hidden="true">&#8599;</span></a><p>Hello, Specialists! Firstly, a huge thank you from the team for all your feedback and suggestions. Now let’s talk about the intel we’ve been gathering from all of you Specialists in the field. Here are the items we are intending to…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-11-04T17:09:06+00:00">4 Nov<i>17:09</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4732747437206188277" target="_blank" rel="noopener noreferrer">Thank you for playing From Space! <span aria-hidden="true">&#8599;</span></a><p>It’s been 24 hours since we launched From Space! We’d like to take this time to thank everyone in the community for your support, and for being with us on launch day and playing our game! We’ve been overwhelmed with your comments of…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-11-03T17:03:33+00:00">3 Nov<i>17:03</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4732747437202529682" target="_blank" rel="noopener noreferrer">From Space is available now! <span aria-hidden="true">&#8599;</span></a><p>Specialists, The day has finally arrived! Triangle Studios and Curve Games are excited to announce the official release of From Space. Launching today on Steam with a 20% discount for $11.99, £8.79, €11.99. From Space is a solo and co-op…</p><small>Missile Trajectory</small></div></li></ol></div><div class="tl-month"><h3>October</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-10-27T16:01:21+00:00">27 Oct<i>16:01</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4706851091173543628" target="_blank" rel="noopener noreferrer">Check out our launch offers! <span aria-hidden="true">&#8599;</span></a><p>Specialists, We hope you are all enjoying the spooky season playing the free From Space demo. November 3rd is getting closer, and we have some big launch news! To help you and your friends face the pink menace, a limited Specialist Edition…</p><small>Missile Trajectory</small></div></li><li class="tl-item"><time datetime="2022-10-21T09:12:59+00:00">21 Oct<i>09:12</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4714731755415238049" target="_blank" rel="noopener noreferrer">Play the Free Demo before it&#x27;s too late! <span aria-hidden="true">&#8599;</span></a><p>Specialists, Thank you for your support during Next Fest! November 3rd is not far now, the pink menace is getting closer. Get some training while you can, invite your friends and prepare a squad of specialists; we need you to defend the…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-10-11T16:00:48+00:00">11 Oct<i>16:00</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4613399405958825267" target="_blank" rel="noopener noreferrer">Play the demo until launch! <span aria-hidden="true">&#8599;</span></a><p>Thanks from the team! Specialists! Firstly, a huge thank you from the team for all of the support from the community during Next Fest. Your enthusiasm for From Space has helped make this our most successful Next Fest! We’re thrilled that so…</p><small>CosmicRaccoon</small></div></li><li class="tl-item"><time datetime="2022-10-07T13:02:20+00:00">7 Oct<i>13:02</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4613399405943799296" target="_blank" rel="noopener noreferrer">Q&amp;A With the Devs! <span aria-hidden="true">&#8599;</span></a><p>Specialists, A huge thank you to everyone who’s downloaded and played the From Space Demo! Your feedback has been heart warming to read. There’s still time for those who haven’t had a chance to play! The Demo is playable during Next Fest…</p><small>Missile Trajectory</small></div></li><li class="tl-item"><time datetime="2022-10-03T16:29:41+00:00">3 Oct<i>16:29</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4588629064125683282" target="_blank" rel="noopener noreferrer">From Space Next Fest Demo! <span aria-hidden="true">&#8599;</span></a><p>Specialists! We’re very happy to announce that during Next Fest, players on Steam will be able to download and play our latest demo! Play through a section of our Powerplant level and take on hordes of pink pests! Get some training in now…</p><small>Missile Trajectory</small></div></li></ol></div><div class="tl-month"><h3>September</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-09-20T14:11:27+00:00">20 Sep<i>14:11</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6258337460562009224" target="_blank" rel="noopener noreferrer">From Space New Launch Date – November 3rd! <span aria-hidden="true">&#8599;</span></a><p>Specialists, It seems the alien invasion is looking to be quite the battle! We need a little more time to prepare to face the threat to our world. From Space will now launch on November 3rd, 2022. We know this news may be disappointing to…</p><small>CosmicRaccoon</small></div></li></ol></div><div class="tl-month"><h3>June</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-06-23T17:07:41+00:00">23 Jun<i>17:07</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4474904295730394963" target="_blank" rel="noopener noreferrer">Summer Sale 2022 <span aria-hidden="true">&#8599;</span></a><p>With the Steam Summer Sale underway, you’ve probably filled your library with some awesome games right? Now you’re looking for the next thing because you’ll definitely complete your backlog of sale games right? Right!? We’ve got you…</p><small>Missile Trajectory</small></div></li></ol></div></section><section class="tl-year tl-s3"><div class="tl-month"><h3>August</h3><ol class="tl-list"><li class="tl-item"><time datetime="2021-08-20T07:50:28+00:00">20 Aug<i>07:50</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4022264629314138594" target="_blank" rel="noopener noreferrer">New and improved FROM SPACE demo, available NOW! <span aria-hidden="true">&#8599;</span></a><p>In our previous update, we outlined how we improved the demo based on the feedback received during the previous Steam Next Fest. Today we&#x27;re releasing a vastly improved version of the demo for everyone to enjoy. Here are too many changes to…</p><small>Triangle Studios</small></div></li></ol></div><div class="tl-month"><h3>July</h3><ol class="tl-list"><li class="tl-item"><time datetime="2021-07-05T08:10:45+00:00">5 Jul<i>08:10</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4032392655103017519" target="_blank" rel="noopener noreferrer">Devlog - Next Fest Learnings <span aria-hidden="true">&#8599;</span></a><p>Devlog In addition to news and cool videos, we also post articles with general development updates, giving you some insight in our process and allowing you to follow our journey in building this awesome game. Next Fest Feedback Oh boy…</p><small>Triangle Studios</small></div></li></ol></div><div class="tl-month"><h3>June</h3><ol class="tl-list"><li class="tl-item"><time datetime="2021-06-16T07:15:24+00:00">16 Jun<i>07:15</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4056035920050260039" target="_blank" rel="noopener noreferrer">FROM SPACE Multiplayer Demo NOW available! <span aria-hidden="true">&#8599;</span></a><p>Every time a dev releases a game or an update, an incredible amount of work goes into testing, checking and making sure everything is as it is supposed to be. Doing this only a few months into the production of FROM SPACE was an incredible…</p><small>Triangle Studios</small></div></li></ol></div><div class="tl-month"><h3>May</h3><ol class="tl-list"><li class="tl-item"><time datetime="2021-05-28T09:22:54+00:00">28 May<i>09:22</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4069544815359337702" target="_blank" rel="noopener noreferrer">Online multiplayer: first video! <span aria-hidden="true">&#8599;</span></a><p>We know why you&#x27;re here, so let&#x27;s focus on the video first, and we&#x27;ll do the explaining after (oh, and please turn up your volume a bit). Woohoo! We hope you enjoyed that! While we have some experience in building multiplayer games, this is…</p><small>Triangle Studios</small></div></li><li class="tl-item"><time datetime="2021-05-21T14:02:43+00:00">21 May<i>14:02</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4069544181431879728" target="_blank" rel="noopener noreferrer">Get ready for FROM SPACE <span aria-hidden="true">&#8599;</span></a><p>First post! Welcome! Let&#x27;s start with a quick introduction: Triangle Studios is an independent developer, currently working on From Space. We&#x27;ve previously released games like Cross of the Dutchman and It came from space and ate our brains…</p><small>Triangle Studios</small></div></li></ol></div></section></div></div></div><input class="modal-toggle" type="checkbox" id="dlc-open"><div class="modal"><label class="modal-back" for="dlc-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Downloadable content"><label class="modal-x" for="dlc-open" aria-label="Close">&times;</label><h2>Downloadable content</h2><p class="sub">Everything Steam lists as add-on content for this game, newest first. Prices are left out on purpose: the store answers this page in one currency and it is not the reader&#x27;s.</p><table class="optable"><thead><tr><th>Name</th><th>Platforms</th><th>Released</th></tr></thead><tbody><tr><td><a href="https://store.steampowered.com/app/2260110/" target="_blank" rel="noopener noreferrer">From Space - Operation Clear Skies <span aria-hidden="true">&#8599;</span></a></td><td><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></td><td>21 Nov 2023</td></tr><tr><td><a href="https://store.steampowered.com/app/2496250/" target="_blank" rel="noopener noreferrer">From Space - Mission Pack: Concrete Jungle <span aria-hidden="true">&#8599;</span></a></td><td><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></td><td>12 Oct 2023</td></tr><tr><td><a href="https://store.steampowered.com/app/2496240/" target="_blank" rel="noopener noreferrer">From Space - Mission Pack: Molten Iron <span aria-hidden="true">&#8599;</span></a></td><td><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></td><td>12 Oct 2023</td></tr><tr><td><a href="https://store.steampowered.com/app/2260121/" target="_blank" rel="noopener noreferrer">From Space - Grenadier and Scientist Specialists <span aria-hidden="true">&#8599;</span></a></td><td><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></td><td>25 May 2023</td></tr><tr><td><a href="https://store.steampowered.com/app/2260122/" target="_blank" rel="noopener noreferrer">From Space - The Scouts Specialists <span aria-hidden="true">&#8599;</span></a></td><td><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></td><td>16 Mar 2023</td></tr><tr><td><a href="https://store.steampowered.com/app/2235290/" target="_blank" rel="noopener noreferrer">From Space - Festive Specialist Outfits <span aria-hidden="true">&#8599;</span></a></td><td><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></td><td>13 Dec 2022</td></tr><tr><td><a href="https://store.steampowered.com/app/2116960/" target="_blank" rel="noopener noreferrer">From Space - Original Soundtrack <span aria-hidden="true">&#8599;</span></a></td><td><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span><span class="plat plat-mac"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M17.05 12.54c-.02-1.88 1.53-2.78 1.6-2.83-.87-1.27-2.23-1.45-2.71-1.47-1.15-.12-2.25.68-2.84.68-.58 0-1.48-.66-2.44-.64-1.26.02-2.41.73-3.06 1.85-1.3 2.27-.33 5.62.94 7.46.62.9 1.36 1.91 2.33 1.88.93-.04 1.29-.61 2.42-.611.13 0 1.45.61 2.44.59 1-.02 1.64-.92 2.25-1.82.71-1.05 1-2.06 1.02-2.11-.02-.01-1.96-.75-1.98-2.98Z"/><path d="M15.2 6.36c.52-.62.86-1.49.77-2.36-.74.03-1.64.49-2.17 1.12-.48.55-.9 1.44-.78 2.29.83.06 1.67-.42 2.19-1.05Z"/></svg>macOS</span><span class="plat plat-linux"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8.9 17.6c-1.1.5-2 1-2.4 1.6-.4.6-.2 1.3.5 1.6.5.2 1.2.2 1.9 0l1.2-.4Z"/><path d="M15.1 17.6c1.1.5 2 1 2.4 1.6.4.6.2 1.3-.5 1.6-.5.2-1.2.2-1.9 0l-1.2-.4Z"/><path d="M12 1.9c-2.2 0-3.6 1.8-3.6 4.1 0 1 .1 1.6-.2 2.2-.3.7-.9 1.3-1.4 2-.6.8-1.1 1.7-1.4 2.7-.3 1-.1 1.8.3 2 .4.2.8 0 1.1-.4.1 1 .4 2 .9 2.8.9 1.4 2.5 2.1 4.3 2.1s3.4-.7 4.3-2.1c.5-.8.8-1.8.9-2.8.3.4.7.6 1.1.4.4-.2.6-1 .3-2-.3-1-.8-1.9-1.4-2.7-.5-.7-1.1-1.3-1.4-2-.3-.6-.2-1.2-.2-2.2C15.6 3.7 14.2 1.9 12 1.9Z"/><path d="M10.6 5.6a.85 1.05 0 1 0 0 2.1.85 1.05 0 1 0 0-2.1Z" fill="var(--bg)"/><path d="M13.4 5.6a.85 1.05 0 1 0 0 2.1.85 1.05 0 1 0 0-2.1Z" fill="var(--bg)"/><path d="M12 7.2c-.7 0-1.3.4-1.3.9s.6.9 1.3.9 1.3-.4 1.3-.9-.6-.9-1.3-.9Z" fill="var(--bg)"/></svg>Linux</span></td><td>03 Nov 2022</td></tr></tbody></table></div></div><input class="modal-toggle" type="checkbox" id="launch-open"><div class="modal"><label class="modal-back" for="launch-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Launch options"><label class="modal-x" for="launch-open" aria-label="Close">&times;</label><h2>Launch options</h2><p class="sub">What Steam runs, and with what. Straight from the app configuration.</p><table class="optable"><thead><tr><th>Description</th><th>Executable</th><th>Arguments</th><th>Platform</th><th></th></tr></thead><tbody><tr><td><span class="muted">Launch</span></td><td><code class="cb-exe">FromSpace.exe</code></td><td></td><td>windows 64</td><td></td></tr></tbody></table></div></div><input class="modal-toggle" type="checkbox" id="saves-open"><div class="modal"><label class="modal-back" for="saves-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Cloud saves"><label class="modal-x" for="saves-open" aria-label="Close">&times;</label><h2>Cloud saves</h2><p class="sub">The folders Steam Cloud syncs. The root is a token Steam uses for a location on your own machine, not a path this page can know.</p><table class="optable"><thead><tr><th>Root</th><th>Folder</th><th>Files</th></tr></thead><tbody><tr><td><code class="cb-root">WinAppDataLocalLow</code></td><td><code class="cb-word">Triangle Studios/FromSpace/{64BitSteamID}</code></td><td><code class="cb-str">*</code> <span class="muted">and below</span></td></tr></tbody></table></div></div>
+</div>
+</body>
+</html>

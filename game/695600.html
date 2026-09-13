@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The page is dark, and says so before the stylesheet lands. Without this
+     the browser paints its own white ground first and every reader gets the
+     flash this meta exists to prevent -- including the ones whose system is
+     set to light, who will land on a dark page either way. -->
+<meta name="color-scheme" content="dark">
+<title>This Grand Life · Game information</title>
+<!-- The site mark as the tab icon, inline rather than a file: a draft
+     opened from disk shows it too, and the publish step copies nothing
+     new. Built in chrome.py, which says why. -->
+<link rel="icon" href="data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'><style>.f{stroke:%230b62ab}.l{stroke:%23a8329b}%40media(prefers-color-scheme:dark){.f{stroke:%237cc5ff}.l{stroke:%23e08add}}</style><rect%20class='f'%20x='1.6'%20y='1.6'%20width='20.8'%20height='20.8'%20rx='5'%20fill='none'%20stroke-width='2.4'/><path%20class='l'%20d='M6%2015.5%20L10%209.5%20L13.5%2013.5%20L18%206.5'%20fill='none'%20stroke-width='3'%20stroke-linecap='round'%20stroke-linejoin='round'/></svg>">
+<style>/* STEAMDBnexus -- the game page.
+ *
+ * Lifted out of a Python string, where it lived while the design was being
+ * decided. It bit twice there: once a regex meant to remove a few unused
+ * colour tokens ate the entire dark palette, because CSS inside Python has to
+ * be edited as text rather than as CSS.
+ *
+ * Two rules hold across the whole sheet:
+ *
+ *   Content is not boxed. Controls are. A border says "this is a thing you act
+ *   on"; putting one round a paragraph of facts says nothing.
+ *
+ *   Every colour is a token, and there is one set of them. **The site is dark
+ *   and only dark.** It had a light palette too, chosen by the reader's system
+ *   setting, and that was thirty colours kept in step for a page nobody comes
+ *   to a games database wanting: a bright flash in a dark room.
+ *
+ *   So a colour is checked against one ground rather than two, which is easier
+ *   and not weaker -- the rule that a token with 2.4:1 somewhere is not
+ *   shippable still holds, there is simply only one somewhere now. Audit the
+ *   palette after changing it: every token used must be defined, and every
+ *   token defined must be used.
+ *
+ * See __memory/memory/page-design.md.
+ */
+
+:root {
+    color-scheme:dark;
+
+    /* grounds and lines */
+    --bg: #10151d;
+    --card: #18212d;
+    --card-2: #192431;
+    --line: #2a3747;
+    --rule: #41536a;
+    --hairline: #ffffff09;
+    --image-line: #35485a;
+
+    /* text */
+    --text: #e4ecf4;
+    --text-soft: #b9c8d7;
+    --text-quiet: #b5c9da;
+    --muted: #93a5b9;
+
+    /* the two accents */
+    --blue: #7cc5ff;
+    --magenta: #e08add;
+
+    /* the backdrop */
+    --art: .50;
+    --art-blur: 12px;
+
+    /* review score bands */
+    --sc-good: #80d8ad;
+    --sc-ok: #c3d97a;
+    --sc-mixed: #dfc598;
+    --sc-poor: #e8a66a;
+    --sc-bad: #ff8f8f;
+    --green: #80d8ad;
+    --meter-bg: #775752;
+
+    /* charts */
+    --avg: #7cc5ff;
+    --peak: #274966;
+    --grid: #212c39;
+
+    /* the three platform marks. Their own tokens rather than the accents:
+       blue on this site means "this link leaves the site", and a mark that
+       borrowed it would be making a promise it cannot keep. Against --bg:
+       9.13, 13.51 and 12.57 to one, where a non-text mark needs 3. */
+    --os-win: #4cc2ff;
+    --os-mac: #d7dee7;
+    --os-linux: #ffd05a;
+
+    /* the parts of a command line, inside the launch and cloud-save popups.
+       A flag, a quoted string and a bare word are three different things and
+       one colour makes them a wall. Against --bg: 9.76, 10.56 and 10.37 to
+       one, where body text needs 4.5. */
+    --cb-flag: #e8b55c;
+    --cb-str: #8fd4a2;
+    --cb-root: #7fd0d6;
+
+    /* odds and ends */
+    --deck: #dfc598;
+    --link-icon: #8098ad;
+}
+
+/* --------------------------------------- where a link goes, in colour */
+/* Site-wide, not the index's. page-design.md files this under "what holds on
+   every page", and the moment it lived only in the index's sheet the game
+   page's own link home used `.stay` with no rule behind it -- a blue link that
+   was supposed to be the unmarked one. The class audit caught it; the lesson is
+   that a shared class belongs in the shared sheet.
+
+   `a` is blue by default just below, and blue means "this leaves this site". A
+   link that STAYS drops the colour: the ordinary case is not marked, the
+   exceptions are. */
+.stay { color:var(--text) }
+.stay:hover { color:var(--text);text-decoration:underline }
+/* The arrow is the character itself, not a CSS unicode escape. The escape form
+   went through a Python string on the way into this file and came out as
+   control character 0x11 followed by "97": still valid CSS, invisible in a
+   diff, and a stray control byte in the stylesheet. A backslash followed by
+   digits is an octal escape in Python before it is ever a CSS one. The file is
+   UTF-8 -- write the glyph. */
+.leaves::after { content:"↗";font-size:.85em;margin-left:3px;
+                 color:var(--link-icon);vertical-align:baseline }
+
+/* ------------------------------------------------------------- the 404 */
+.oops { max-width:640px;padding:40px 0 80px }
+.oops h1 { margin:6px 0 20px }
+.oops .lede { font-size:16.5px;line-height:1.6;color:var(--text-soft) }
+.oops p { color:var(--text-soft) }
+.big { font-size:15px;font-weight:600 }
+
+/* -------------------------------------- the last thirty days, and neighbours */
+/* The one figure the reviews API cannot give: a lifetime percentage cannot say
+   whether a game is getting better or worse. It sits under the all-time score
+   and carries its OWN band colour, which is the point -- a game at 92% for life
+   and 41% this month should not show one colour for both. */
+.recent { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+/* The direct child only. The daily strip inside this block carries a <b> of
+   its own in every tooltip, and an unqualified rule here rendered those as
+   small muted upper case -- the same mistake `.rvhist b` made, in the same
+   week, for the same reason. */
+.recent > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+.recent .rw { display:block;font-size:13px;font-weight:600;margin-top:5px;
+              color:var(--score) }
+.recent .rn { display:block;font-size:11.5px;color:var(--muted);margin-top:2px }
+
+/* Review counts over time, directly under the meter that reports them for the
+   whole life of the game. A lifetime percentage cannot say whether a game was
+   always liked or was rescued; twenty-four bars can.
+
+   The bar's HEIGHT is that period's review count and the cap is the negative
+   part of it, so volume and mood are one shape rather than two charts. The
+   fills are the meter's own two colours on purpose: the reader has just read
+   that bar, and a chart under it in different colours would be a second
+   language to learn for the same fact.
+
+   Elements rather than SVG, and the tooltip is why. An SVG <title> is the
+   browser's own tooltip and waits about a second before it appears, which is
+   not a delay any stylesheet can shorten. This one is ours, so :hover shows
+   it at once. */
+.rvhist { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+/* The direct child only. The tooltip inside the chart carries a <b> of its
+   own, and an unqualified rule here made it small, muted and upper case. */
+.rvhist > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+/* Not scoped to `.rvhist`. The marked-periods block below uses the same note
+   and, scoped, it rendered there as full-size body text -- the third time in
+   this file a class has been styled in one place and used in two. */
+.rv-note { display:block;font-size:11.5px;color:var(--muted);margin-top:2px;
+           line-height:1.45 }
+
+/* The row is the plot. Each column is a full-height hover target with the bar
+   sitting at the bottom of it, because a bar two pixels tall is not something
+   anybody can point at -- and a period with no reviews has no bar at all. */
+.rv-bars { position:relative;display:flex;align-items:flex-end;gap:2px;
+           height:58px;margin:9px 0 4px }
+.rv-bar { flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end }
+.rv-up { display:block;width:100%;background:var(--score) }
+.rv-down { display:block;width:100%;background:var(--meter-bg) }
+
+/* Anchored to the row rather than to the column, so left:0;right:0 makes it
+   the width of the chart. Anchored to the column it would be ten pixels wide
+   and would hang off the side of the panel at both ends.
+
+   On `.rv-bars` rather than `.rvhist`, because both strips carry that class
+   and only the long one sits inside `.rvhist`. */
+.rv-bars em { position:absolute;left:0;right:0;bottom:calc(100% + 3px);
+             visibility:hidden;z-index:3;
+             background:var(--card);border:1px solid var(--line);
+             border-radius:7px;padding:6px 8px;
+             font-style:normal;font-size:11px;line-height:1.4;
+             color:var(--text);text-align:center;
+             box-shadow:0 3px 10px #00000026 }
+/* The period and its share on the first line, the counts beneath. */
+.rv-bars em b { display:block;font-weight:600;margin-bottom:1px }
+/* The share carries a band class of its own -- s-good, s-mixed and the rest --
+   which is the same five-step table the big number at the top of the panel
+   uses. Those classes only set --score; this is the rule that spends it.
+   Checked against --card in both themes: the worst of the ten is 5.29:1. */
+.rv-bars em span { color:var(--score) }
+/* No transition and no delay: the whole point of owning this element. */
+.rv-bar:hover em { visibility:visible }
+
+/* The newest period has not finished, so its bar is not a result yet. Faded
+   rather than hidden: dropping it would make the chart up to a month out of
+   date, and leaving it solid draws a fall that is only the calendar. The end
+   label says 'so far' for anyone not seeing colour. */
+.rv-part .rv-up { opacity:.45 }
+
+.rv-span { display:flex;justify-content:space-between;font-size:10px;
+           color:var(--muted);gap:10px }
+
+/* The stretches Steam marks on its own review graph. A block of its own, not
+   shading on the bars: the periods run from 3 days to 123 while a bar is a
+   whole month, so colouring September to mark eleven days of it would be a
+   claim about September.
+
+   Dates and a length, and nothing else. The payload carries a `type` that is
+   0 on every event held, with no label anywhere saying what 0 means -- so
+   naming these would be putting a word in Valve's mouth. */
+.marked { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+.marked > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+/* One line a period, wrapping rather than overflowing. The column is 290px
+   and a `nowrap` row that cannot fit pushes its second half outside the card
+   -- which is what the first version did. */
+.mk-row { display:block;font-size:12px;color:var(--text-soft);padding:5px 0 }
+.mk-row:first-of-type { margin-top:7px }
+.mk-when { white-space:nowrap }
+.mk-len { color:var(--muted);font-size:11px;white-space:nowrap }
+/* The glyph itself, never the CSS escape `\00b7`. Written as an escape it
+   goes through a shell and a Python string on the way into this file and
+   arrives as a NUL byte followed by "b7" -- grep then calls the stylesheet a
+   binary file and the page shows a replacement character. The same note sits
+   beside `.leaves::after`, which was bitten first. This file is UTF-8. */
+.mk-len::before { content:" · ";color:var(--line) }
+
+/* The same thirty days as the summary above it, with a shape. Shorter than the
+   long chart on purpose: it is a detail under a figure, not a second headline.
+   Thirty bars in 250px is about six pixels each, and the numbers live in the
+   tooltip where there is room for them. */
+.rv-days { height:34px;margin:8px 0 3px }
+.recent .rv-span { margin-bottom:2px }
+
+/* Games Steam lists as similar, and only the ones this site holds a page for.
+   Every row is therefore an internal link with a real name, so none of them
+   wears the blue that means "this leaves the site". */
+.related { list-style:none;margin:0 0 12px;padding:0 }
+.related li { border-bottom:1px solid var(--hairline);padding:7px 0 }
+.related li:last-child { border-bottom:0 }
+.related a { font-size:12.5px;overflow-wrap:anywhere }
+
+/* ---------------------------------------------------------- the site bar */
+/* Shared by both kinds of page, which is the point: it is the one thing that
+   says these are the same site. The game page carries the brand and the link
+   home and nothing else -- the search belongs to the index, and so does the
+   Support panel, deliberately. A donation panel holds an email address, and an
+   email address on a page that promises no scripts is what makes Cloudflare
+   inject one at the edge. See __memory/memory/hosting.md. */
+/* Sticky, because the search goes with you down a long list. */
+/* Pulled out to the page's edges and padded back in, so its background covers
+   the full width rather than just the text column.
+   
+   Without that, anything sitting left of the column slid under the bar and out
+   the side of it while scrolling. `.ours` does exactly that: it hangs its
+   magenta marker 11px into the left padding so the names still line up, which
+   is right for the row and was visible against a bar that stopped short. */
+.topbar { position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;
+          padding:14px var(--pad);margin:0 calc(var(--pad) * -1) 34px;
+          background:var(--bg);
+          border-bottom:1px solid var(--rule) }
+.brand { display:flex;align-items:center;gap:9px;font-size:16px;letter-spacing:-.02em;
+         white-space:nowrap;flex:0 0 auto }
+.brand span { font-weight:400;color:var(--text-soft) }
+.brand b { font-weight:700;color:var(--text) }
+.brand:hover { text-decoration:none }
+.logo { width:26px;height:26px;flex:0 0 auto;display:block }
+
+
+/* The game page's bar: same brand, none of the index's machinery.
+   It undoes three things `.topbar` needs and it does not.
+
+   **No background.** The index bar is sticky, so it has to paint over whatever
+   scrolls under it. The game page has the game's own art fading down the page
+   behind everything, and an opaque strip across the top of that reads as a
+   block sitting on the picture rather than as part of it.
+
+   **Not sticky, and no rule under it.** With the background gone, a sticky bar
+   would have the page's text sliding through the wordmark. A game page is read
+   top to bottom and the way out does not need to follow the reader down. */
+.sitebar { position:static;background:none;border-bottom:0;
+           padding:0;margin-bottom:26px }
+
+* { box-sizing:border-box }
+html { scroll-behavior:smooth;scroll-padding-top:30px }
+body { margin:0;background:var(--bg);color:var(--text);font:14px/1.6 system-ui,Segoe UI,sans-serif }
+a { color:var(--blue);text-decoration:none }
+a:hover { text-decoration:underline }
+a:focus-visible,summary:focus-visible { outline:2px solid var(--blue);outline-offset:4px }
+img { max-width:100%;height:auto }
+h1 { font-size:clamp(27px,3vw,42px);line-height:1.15;letter-spacing:-.035em;margin:10px 0 16px;font-weight:650 }
+h3 { font-size:15px;font-weight:600;margin:0 0 17px }
+p { margin:0 0 15px }
+/* **Two widths, because the two pages are not the same shape.** This one is
+   the game page and the 404. The index takes `.wrap.index` in `index.css` and
+   is wider.
+
+   1300, up a little from the 1250 it sat at all along. A game page is mostly
+   prose and its columns cap themselves -- `.description` at 760,
+   `.about-copy` at 820 -- so width past a point is not room, it is a wider
+   empty margin beside a paragraph that will not use it. Worked out at 1650,
+   which this briefly was on 2026-09-12: the hero's text column came to 1154px
+   holding a 760px description, leaving 394px of nothing at all.
+
+   The index is the other case, and it was the one the widening was asked for:
+   two ten-row tables side by side and a six-card news row, all scanned rather
+   than read, all using every pixel given to them. */
+/* `--pad` so the sticky bar can mirror it. The bar has to paint the full width
+   of the page, and the page's side padding is the only number that says what
+   that is -- written twice it drifts, and the bar's background stops one
+   breakpoint short. */
+.wrap { --pad:28px;max-width:1300px;margin:auto;padding:56px var(--pad) 45px }
+/* The text leads and the cover follows. The other way round gave the title a narrow column beside a 460px picture, which is what made it read as cramped next to the first draft of this page. */
+.hero { display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:40px;align-items:start;margin-bottom:30px }
+.hero-text { min-width:0 }
+.eyebrow { text-transform:uppercase;letter-spacing:.13em;font-size:11px;font-weight:700;color:var(--blue);margin:0 0 14px }
+/* Four across over a hairline, the way a dashboard states its headline numbers. A rule rather than a card each, so they read as one row. */
+.hero-stats { display:grid;grid-template-columns:repeat(4,1fr);gap:24px;border-top:1px solid var(--rule);padding-top:22px;margin:0 0 30px }
+.hero-stats .stat { background:none;border:0;padding:0 }
+.hero-stats .stat b { display:block;font-size:29px;font-weight:600;letter-spacing:-.03em;line-height:1.15;color:var(--text) }
+.hero-stats .stat span { display:block;color:var(--muted);font-size:11px;margin-top:4px }
+.news-launch-row { display:flex;justify-content:flex-end;align-items:flex-end;
+                   border-bottom:1px solid var(--rule);margin:0 }
+.news-launch-row+.hero-stats { border-top:0 }
+.news-launch { display:flex;align-items:baseline;gap:12px;margin-bottom:-1px;
+               padding:9px 13px 8px;background:var(--bg);border:1px solid var(--rule);
+               border-top:2px solid var(--magenta);border-bottom-color:var(--bg);
+               border-radius:6px 6px 0 0;cursor:pointer }
+.news-launch:hover { border-top-color:var(--text);color:var(--text) }
+.news-launch b { color:var(--magenta);font-size:11px;letter-spacing:.07em;
+                 text-transform:uppercase }
+.news-launch span { color:var(--muted);font-size:10.5px }
+.header-image { width:100%;display:block;border-radius:10px;border:1px solid var(--image-line);aspect-ratio:460/215;object-fit:cover }
+.description { font-size:16.5px;line-height:1.6;color:var(--text-soft);max-width:760px }
+/* Under the artwork now, in a 340px column rather than beside a wide paragraph,
+   so it wraps onto a second row instead of running off the end. */
+.hero-meta { display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:12px }
+/* `--muted` for the outline, not `--line`. Measured against the page ground:
+   --line is 1.24:1 in light and 1.51:1 in dark, and a border needs about 3:1 to
+   read as a border at all -- so these chips had an edge nobody could see.
+   --rule is no better at 1.63 and 2.33. --muted is 5.0 and 6.8, which at one
+   pixel is a clear thin line rather than a heavy one. */
+.hero-meta span { border:1px solid var(--muted);border-radius:5px;
+                  padding:3px 10px;color:var(--text-soft) }
+.layout { display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:24px }
+.panel { padding:0 0 26px;margin:0 0 26px;min-width:0;border-bottom:1px solid var(--rule) }
+aside .panel:last-child { border-bottom:0;margin-bottom:0 }
+/* The main column stops being a stack of boxes. A card is a thing you can pick up and move; these are sections of one document, and a rule between them with room either side says that better than a border all the way round each one. The sidebar keeps its cards, because those really are separate widgets. */
+.layout>main>.panel { padding:38px 0;margin:0;border-bottom:1px solid var(--rule) }
+.layout>main>.panel:first-child { padding-top:4px }
+.layout>main>.fold:first-of-type { margin-top:30px }
+/* A section heading, not a card label. */
+.layout>main>.panel>h3,.information-heading h3 { font-size:20px;font-weight:600;letter-spacing:-.015em;margin:0 0 4px }
+.information-heading { margin-bottom:22px;align-items:flex-start }
+.layout>main>.panel>h3+* { margin-top:18px }
+dl { margin:0 }
+/* The two buttons under the information table. They open a list a row could
+   not hold: app 252490 ships six launch entries, and a row reading "six of
+   them" says nothing. `.go` is the same button the charts opener uses. */
+.info-more { display:flex;flex-wrap:wrap;gap:18px;margin-top:18px }
+/* `.go` had a rule only inside `.charts-open`, so these two opened a dialog
+   with a text cursor and no colour -- the exact fault the note beside the
+   modal styles warns about. A <label> gets no hand from the browser.
+   Magenta because that is this site's word for "opens something here without
+   leaving"; blue would promise a page the reader never gets. */
+.info-more .go { cursor:pointer;color:var(--magenta);font-size:13px;
+                 white-space:nowrap;user-select:none }
+.info-more .go:hover { text-decoration:underline }
+
+/* The table inside those popups. Fixed-width figures for the paths and the
+   arguments, because they are things somebody may copy and a proportional
+   font makes an l and a 1 the same shape. */
+.optable { width:100%;border-collapse:collapse;font-size:12.5px }
+.optable th { text-align:left;font-weight:600;font-size:10.5px;
+              text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+              border-bottom:1px solid var(--rule);padding:0 14px 8px 0 }
+.optable td { border-bottom:1px solid var(--hairline);padding:9px 14px 9px 0;
+              vertical-align:top;color:var(--text-soft) }
+.optable tr:last-child td { border-bottom:0 }
+/* The DLC table only. Three platform marks in a table cell are a
+   column and not a sentence, so the 16px gap that separates them in
+   the Platforms row of the information table is too much here. The
+   date never wraps: '24 Sep 2026' broken over two lines is unreadable
+   and the column is narrow enough that it would. Scoped through the
+   toggle's own id, because `table_popup` gives every dialog the same
+   markup and this must not reach the launch or saves tables. */
+#dlc-open + .modal .plat { margin-right:10px }
+#dlc-open + .modal .optable td:last-child { white-space:nowrap }
+.optable code { font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+                color:var(--text);word-break:break-all }
+.cb-exe { color:var(--text);font-weight:600 }
+.cb-flag { color:var(--cb-flag) }
+.cb-str { color:var(--cb-str) }
+.cb-word { color:var(--text-soft) }
+.cb-root { color:var(--cb-root) }
+.tagline-chip { display:inline-block;font-size:10.5px;padding:2px 7px;
+                border:1px solid var(--line);border-radius:20px;
+                color:var(--muted);white-space:nowrap;margin-right:5px }
+
+/* The build id beside the update date. Present because it is the thing that
+   actually changed and somebody may want to quote it, quiet because the date
+   is what almost everybody came for. */
+.quiet { color:var(--muted);font-size:.88em }
+
+/* Each platform behind its own mark. Inline-flex so the icon and the word are
+   one thing that wraps together, rather than a picture that can end a line
+   with its label on the next one. */
+.plat { display:inline-flex;align-items:center;gap:6px;margin-right:16px;
+        white-space:nowrap }
+.plat:last-child { margin-right:0 }
+.plat svg { width:14px;height:14px;flex:0 0 auto }
+/* `fill="currentColor"` in the markup, so setting `color` here paints it. The
+   eyes and beak of the penguin stay `--bg` and are cut out of whatever colour
+   the body takes. */
+.plat-windows svg { color:var(--os-win) }
+.plat-mac svg { color:var(--os-mac) }
+.plat-linux svg { color:var(--os-linux) }
+
+.fact { display:grid;grid-template-columns:minmax(150px,22%) minmax(0,1fr);gap:24px;border-bottom:1px solid var(--hairline);padding:11px 0 }
+.fact:last-child { border-bottom:0 }
+dt { color:var(--muted);font-size:12.5px }
+dd { margin:0;overflow-wrap:anywhere;min-height:20px;font-size:14px }
+/* A rule on the left and nothing else. A border, a radius and a fill were three separate ways of saying 'these are separate', which is what made them read as older than the rest of the page. One rule does it, and twenty of them stay a list instead of becoming a wall of buttons. */
+.tags { display:flex;flex-wrap:wrap;gap:8px 18px }
+.tags span { padding:1px 0 1px 10px;border-left:2px solid var(--blue);color:var(--text-soft);font-size:12.5px }
+.feature-section { margin-bottom:22px }
+.feature-section:last-child { margin-bottom:0 }
+.feature-section h3 { font-size:12px;color:var(--muted);font-weight:500;margin-bottom:10px }
+.muted { color:var(--muted);font-size:12px }
+aside .panel>h3 { font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin:0 0 14px }
+/* The reviews heading takes the score's colour, the same as the bar over it, so the whole block says one thing. */
+.reviews>h3 { color:var(--score) }
+aside .fact { grid-template-columns:1fr 1fr;gap:10px;font-size:12px }
+aside dd { text-align:right }
+/* One variable, set by the band class, drives the bar, the number, the word and the meter -- so they can never disagree about how the game is doing. */
+.reviews { border-top:2px solid var(--score);padding-top:15px }
+.s-good { --score:var(--sc-good) }
+.s-ok { --score:var(--sc-ok) }
+.s-mixed { --score:var(--sc-mixed) }
+.s-poor { --score:var(--sc-poor) }
+.s-bad { --score:var(--sc-bad) }
+.s-none { --score:var(--muted) }
+.review-score { color:var(--score);font-size:43px;line-height:1.2;letter-spacing:-.045em }
+.review-score span { font-size:24px }
+.positive { display:block;color:var(--score);font-size:13px;margin:5px 0 }
+.meter { height:5px;border-radius:5px;background:var(--meter-bg);overflow:hidden;margin:20px 0 8px }
+.meter i { display:block;height:100%;background:var(--score) }
+.split { display:flex;justify-content:space-between;font-size:10px;color:var(--muted);gap:10px }
+.activity { font-size:32px;letter-spacing:-.03em }
+.deck-status { font-size:20px;margin-bottom:10px;color:var(--deck) }
+.link-list { list-style:none;margin:0;padding:0 }
+.link-list li { margin:9px 0;font-size:13px }
+.fold { border:0;border-top:1px solid var(--rule);border-radius:0;margin:0;background:none }
+.fold:last-of-type { border-bottom:1px solid var(--rule) }
+.fold>summary { cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px 2px;list-style:none }
+.fold>summary::-webkit-details-marker { display:none }
+.fold summary b { display:block;font-size:14px;font-weight:550 }
+.fold summary small { display:block;color:var(--muted);font-size:11px;margin-top:3px }
+.plus { font-size:23px;color:var(--blue);font-weight:300 }
+.fold[open] .plus { transform:rotate(45deg) }
+.fold[open]>summary { border-bottom:0 }
+.fold-body { padding:0 2px 26px;min-width:0 }
+.about-fold>summary { background:var(--card-2);border-radius:6px;padding:21px 16px }
+.about-fold>summary span:first-child b { font-size:16px }
+.about-fold[open] { background:var(--card-2);border-radius:6px;border-top-color:transparent }
+.about-fold[open]>summary { margin-bottom:0;border-bottom:1px solid var(--hairline) }
+.about-fold>.fold-body { padding:20px 16px 24px }
+.about-copy { max-width:820px;color:var(--text-soft);font-size:14px;
+              line-height:1.72;white-space:pre-line;overflow-wrap:anywhere }
+.two { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px }
+.two .panel { padding:0 0 0 16px;margin:0;background:none;border:0;border-left:2px solid var(--line) }
+.requirements { white-space:pre-line;font-size:12px;color:var(--text-soft);overflow-wrap:anywhere }
+.content-notice { margin:0 0 26px }
+.content-notice h3,.rating-list h3 { color:var(--muted);font-size:11px;
+                                    font-weight:600;letter-spacing:.08em;
+                                    text-transform:uppercase;margin:0 0 12px }
+.content-notice p { color:var(--text-soft);margin:0;max-width:760px }
+.rating-row { display:grid;grid-template-columns:130px 90px minmax(0,1fr);
+              gap:18px;border-bottom:1px solid var(--hairline);padding:10px 0 }
+.rating-row:last-child { border-bottom:0 }
+.rating-row b { font-size:11px;letter-spacing:.06em;color:var(--text-soft) }
+.rating-row span { font-weight:600;color:var(--text);text-transform:uppercase }
+.rating-row small { color:var(--muted);font-size:11.5px;overflow-wrap:anywhere }
+.languages { width:100%;border-collapse:collapse;font-size:12px }
+.languages th,.languages td { text-align:left;padding:8px 0;border-bottom:1px solid var(--line) }
+.languages th { color:var(--muted);font-weight:400 }
+.languages td:last-child { color:var(--green) }
+.languages+p { margin-top:15px }
+.gallery { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:22px }
+.gallery img { width:100%;display:block;aspect-ratio:16/9;object-fit:cover;border-radius:6px }
+.trailer p { font-size:12px;margin:8px 0 4px }
+.trailer a { font-size:11px }
+.achievement-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:20px 0 }
+.achievement { display:flex;align-items:center;gap:12px }
+.achievement img { width:48px;height:48px;border-radius:5px }
+.achievement b { font-size:12px }
+.achievement small { display:block;color:var(--muted);font-size:10px }
+.spoilers { margin:18px 0 }
+.spoilers summary { cursor:pointer;color:var(--blue);font-size:12px }
+/* ---------------------------------------- the announcement timeline
+ *
+ * Fifty announcements in one scroll is a scroll, not a history. So they are
+ * cut into years, the years into months, and one year is on screen at a time.
+ *
+ * **The year filter is a radio group and nothing else.** No page here runs a
+ * script, so the choice is `:checked` plus a sibling combinator: an input per
+ * year, a label per year, and one rule below per slot. That fixed list is why
+ * `model/news.MAX_YEARS` is 16 -- the sheet has to know how many slots exist
+ * before it knows which game it is drawing.
+ *
+ * The tabs are magenta because on this site magenta means "this opens in
+ * place": the year does not leave the page, it swaps what the page shows. Blue
+ * is for links that leave, and every announcement title is one.
+ */
+.tl-box { width:min(880px,94vw) }
+.tl-pick { position:absolute;width:1px;height:1px;opacity:0;pointer-events:none }
+
+/* Above the scrolling half rather than sticky inside it. The whole point of
+   the tabs is to change year, and a reader forty posts down a 2024 list should
+   not have to scroll back up to leave it -- sticky did that much, but the
+   heading and the "50 announcements, Jun 2024 to Sep 2026" line scrolled away
+   regardless, and those say what the tabs are tabs *of*. `.modal-tall` on the
+   box keeps all three. */
+.tl-tabs { display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px;
+           border-bottom:1px solid var(--rule);padding-bottom:0;
+           background:var(--bg) }
+.tl-tabs label { cursor:pointer;display:flex;align-items:baseline;gap:7px;
+                 padding:7px 13px 8px;margin-bottom:-1px;font-size:13px;
+                 font-weight:550;color:var(--muted);
+                 border-bottom:2px solid transparent }
+.tl-tabs label:hover { color:var(--text) }
+/* The count beside the year. Tabular figures so 4 and 20 line up, and a
+   smaller size so the year stays the thing being read. */
+.tl-tabs label b { font-weight:400;font-size:10.5px;color:var(--muted);
+                   font-variant-numeric:tabular-nums }
+/* Focus is drawn on the label, because the input it belongs to is 1px and
+   invisible -- without this the year tabs are keyboard-reachable and give no
+   sign of where you are. */
+.tl-pick:focus-visible+.tl-tabs label,
+.tl-tabs label:focus-within { outline:2px solid var(--magenta);outline-offset:-2px }
+
+/* Hidden by default; the rule that reveals the chosen year is written per
+   page by `build/page.news_timeline` and lands in the page's own <style>,
+   beside the ones `build/charts.py` writes for its month tabs. A game with
+   three years emits three rules.
+
+   It was sixteen fixed slots here until 2026-09-11. Sixteen was set against a
+   measured oldest announcement of August 2012 and the oldest actually held is
+   May 2010, so the cap was already one year short on the games with the
+   longest histories -- which are the only games a year filter is for. The
+   generated form has no number to get wrong. */
+.tl-year { display:none }
+
+/* The month band. The heading sits in the left column, above the rail, so a
+   reader scanning downwards meets the month before the posts in it. */
+.tl-month { display:grid;grid-template-columns:112px minmax(0,1fr);
+            column-gap:0;padding-top:18px }
+.tl-month+.tl-month { border-top:1px solid var(--line) }
+.tl-month h3 { grid-column:1;font-size:11px;font-weight:600;
+               letter-spacing:.09em;text-transform:uppercase;
+               color:var(--text-quiet);margin:2px 0 0;
+               /* `top:0`, not 44: the tabs are out of the scroller now, so the
+                  top of the scroller is where this should stop. */
+               position:sticky;top:0;background:var(--bg);
+               padding:2px 0 6px }
+.tl-list { grid-column:2;list-style:none;margin:0;padding:0 0 4px }
+
+/* The rail itself: one border down the left of the list, and each post's node
+   drawn on it. */
+.tl-item { position:relative;padding:0 0 18px 22px;
+           border-left:1px solid var(--line) }
+.tl-item:last-child { border-left-color:transparent;padding-bottom:6px }
+.tl-item:last-child:before { box-shadow:0 0 0 4px var(--bg) }
+/* Hollow for an announcement, filled for a patch note. A **shape**, not a
+   colour: blue, magenta and the three platform marks each already mean
+   something exact on this page, and this list does not need a sixth. */
+/* `--muted` and not `--rule`. The node says which posts are patch notes, so
+   it is a mark that carries meaning and owes 3:1 against the ground -- and
+   --rule measures 2.33:1 there, which is a line colour doing a mark's job. */
+.tl-item:before { content:"";position:absolute;left:-4.5px;top:4px;
+                  width:8px;height:8px;border-radius:50%;
+                  background:var(--bg);border:1.5px solid var(--muted) }
+.tl-item.is-patch:before { background:var(--text-quiet);
+                           border-color:var(--text-quiet) }
+.tl-item time { display:block;font-size:10.5px;color:var(--muted);
+                font-variant-numeric:tabular-nums;margin-bottom:3px }
+/* The clock is text, so it takes a text colour: --rule is 2.33:1 on --bg and
+   body text owes 4.5. It is set apart by a separator instead. */
+.tl-item time i { font-style:normal;color:var(--muted) }
+.tl-item time i:before { content:"·";margin:0 6px }
+.tl-copy a { font-size:13px;font-weight:550 }
+.tl-copy p { display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+             overflow:hidden;color:var(--text-soft);font-size:12.5px;
+             line-height:1.55;margin:5px 0 0;max-width:700px }
+.tl-copy small { display:block;font-size:9.5px;color:var(--muted);margin-top:5px;
+                 letter-spacing:.08em;text-transform:uppercase }
+
+@media(max-width:640px) {
+    /* The month label goes back above its posts rather than beside them:
+       112px of left column out of a 340px screen is most of the screen. */
+    .tl-month { grid-template-columns:minmax(0,1fr) }
+    .tl-month h3 { grid-column:1;margin-bottom:12px;position:static }
+    .tl-list { grid-column:1 }
+}
+.fold-body>dl+p { margin-top:15px }
+@media(max-width:1050px) {
+    .hero { grid-template-columns:minmax(0,1fr) 260px;gap:25px }
+    .hero-stats { gap:16px }
+    .hero-stats .stat b { font-size:24px }
+    .layout { grid-template-columns:minmax(0,1fr) 265px }
+    .fact { grid-template-columns:125px minmax(0,1fr);gap:10px }
+    .panel { padding:18px }
+    .fold-body { padding:18px }
+}
+@media(max-width:760px) {
+    .wrap { --pad:16px;padding:30px var(--pad) }
+    .hero,.layout { grid-template-columns:1fr }
+    .hero-media { max-width:420px }
+    .hero-stats { grid-template-columns:repeat(2,1fr);gap:18px }
+    .hero { gap:22px }
+    .header-image { max-width:600px }
+    .hero h1 { font-size:31px }
+    aside { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start }
+    aside .panel { margin-bottom:0 }
+    .two { grid-template-columns:1fr }
+    .fact { grid-template-columns:125px minmax(0,1fr) }
+}
+@media(max-width:420px) {
+    aside,.gallery,.achievement-grid { grid-template-columns:1fr }
+    .fact { grid-template-columns:105px minmax(0,1fr) }
+    .rating-row { grid-template-columns:75px 55px minmax(0,1fr);gap:10px }
+}
+.hero-media { min-width:0 }
+.header-links { margin:0 0 34px;padding-top:26px;border-top:1px solid var(--rule);overflow-x:auto }
+.header-links-grid { display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:26px }
+/* The same treatment as Show charts, in blue: a bar above and nothing around it. Blue rather than magenta because these leave for Steam, and magenta on this page means the charts. */
+.game-link { display:flex;align-items:center;gap:9px;padding:13px 0 0;background:none;border:0;border-top:2px solid var(--blue);border-radius:0;color:var(--text-soft);font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;transition:color .15s,border-color .15s }
+.game-link svg { width:17px;height:17px;flex:none;color:var(--muted);transition:color .15s }
+.game-link .outbound { margin-left:auto;color:var(--link-icon);width:14px;height:14px;flex:none }
+.game-link:hover { color:var(--text);text-decoration:none }
+.game-link:hover svg { color:var(--text) }
+.game-link:focus-visible { outline:2px solid var(--blue);outline-offset:3px }
+@media(max-width:420px) {
+    .game-link { padding:11px 0 0;gap:7px;font-size:10.5px;letter-spacing:.05em }
+    .game-link svg { width:18px;height:18px }
+}
+.information-heading { display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:17px;flex-wrap:wrap }
+.information-heading h3 { margin:0 }
+.free-tag { border:1px solid var(--green);border-radius:5px;padding:3px 10px;
+            color:var(--green);font-size:12px;font-weight:600;line-height:1.35 }
+.updated-at { margin-left:auto;text-align:right;font-size:11px;color:var(--muted) }
+.updated-at b { font-weight:500;color:var(--text-quiet) }
+/* ------------------------------------------- the page backdrop */ /* Absolute, not fixed: it belongs to the top of the page and should scroll away with the header it sits behind, rather than following the reader down a page of tables. */ body { position:relative;min-height:100vh }
+.pagetop { position:absolute;top:0;left:0;right:0;height:640px;overflow:hidden; pointer-events:none;z-index:0 }
+/* Blurred, so what carries over is the colour and the mood rather than somebody's face behind the release date. scale() is not decoration: a blur samples past the element's edges and leaves them soft and see-through, so the picture is grown until those edges fall outside the box that clips it. */ .pagetop-art { width:100%;height:100%;object-fit:cover;object-position:50% 22%; opacity:var(--art);filter:blur(var(--art-blur));transform:scale(1.12) }
+/* Two fades, not one. Down, so the art dissolves into the page rather than stopping at a line; and across from the right, because the cover sits in the left 460px and the title and description sit in the rest -- so the settled ground goes under the words, not under the picture. */ .pagetop:after { content:"";position:absolute;inset:0;background: linear-gradient(180deg,transparent 0%,transparent 20%,var(--bg) 94%), linear-gradient(90deg,var(--bg) 0%,transparent 62%) }
+.wrap { position:relative;z-index:1 }
+/* --------------------------------------------- the charts button */
+/* A bar above and nothing around it. Magenta because that is the one colour
+   this site spends on "opens something here rather than taking you away", and
+   this is the one control on the page that does it.
+ *
+ * It sat in the sidebar and now sits under the cover image, which is why the
+ * margins changed sides: it used to need clearance below it from the panels
+ * that followed, and now needs clearance above it from the artwork instead. */
+.charts-open { display:grid;grid-template-columns:minmax(190px,1fr) auto;
+               align-items:start;gap:40px;padding:14px 0 0;margin:20px 0 0;
+               border-top:2px solid var(--magenta) }
+.charts-open-copy>b { display:block;font-size:13px;letter-spacing:.09em;
+                      text-transform:uppercase;color:var(--magenta) }
+/* Allowed to run to a second line. In the sidebar this was one squeezed line
+   under a 340px image; in the wide column it has room to say the whole span. */
+.charts-open-copy>span { display:block;font-size:11.5px;line-height:1.45;
+                         color:var(--muted);margin-top:4px }
+/* The block is not a link. Only the line that says it goes somewhere does, the same as the reviews block above it -- a card-sized click target with no border round it gives no clue where it starts. */ .charts-open .go { display:block;color:var(--blue);font-size:13px; margin-top:11px;cursor:pointer }
+.charts-open .go:hover { text-decoration:underline }
+.charts-recent { min-width:330px;display:grid;
+                 grid-template-columns:repeat(3,minmax(78px,1fr));gap:5px 24px;
+                 border-left:1px solid var(--hairline);padding-left:28px }
+.charts-recent-title { grid-column:1/-1;color:var(--muted);font-size:10px;
+                       font-weight:600;letter-spacing:.09em;text-transform:uppercase }
+.charts-metric b { display:block;color:var(--text);font-size:18px;font-weight:600;
+                   letter-spacing:-.02em;line-height:1.25;white-space:nowrap }
+.charts-metric b.up { color:var(--green) }
+.charts-metric b.down { color:var(--sc-bad) }
+.charts-metric small { display:block;color:var(--muted);font-size:10.5px;
+                       margin-top:2px }
+@media(max-width:1050px) {
+    .charts-open { grid-template-columns:1fr;gap:18px }
+    .charts-recent { max-width:380px;border-left:0;border-top:1px solid var(--hairline);
+                     padding:14px 0 0 }
+}
+/* ---------------------------------------------------- the dialog */
+/* A hidden checkbox and three labels, and no script -- the same trick the month
+   switcher and the catalogue's reveal already use.
+ *
+ * It was `:target` first, which is simpler to write and put a fragment in the
+ * address bar for the whole visit: `#charts` while open, and `#top` left behind
+ * after closing, because closing a `:target` dialog means navigating to some
+ * other fragment. There is no version of `:target` that does not do this --
+ * the fragment IS the mechanism.
+ *
+ * What the trade cost, and it is a real cost: sending somebody
+ * `/game/730#charts` no longer opens the charts for them, and the back button
+ * no longer closes the dialog -- it leaves the page. The month switcher gave up
+ * shareable per-month links for the same reason and it was worth it there too.
+ *
+ * The backdrop is a label as well, so clicking anywhere beside the box closes
+ * it. */
+/* **Every label that acts as a control needs `cursor:pointer` written down.**
+   An `<a href>` gets the hand from the browser's own stylesheet; a `<label>`
+   does not. When the dialogs stopped being `:target` these all changed from
+   anchors to labels, and each one silently lost the hand: `.go`, `.support-open`
+   and `.modal-x`. Whatever else a control loses when it changes element, check
+   the cursor -- it is the only one of these a reader notices before clicking. */
+
+/* Pinned to the viewport, and that is the whole point of `fixed` here rather
+   than `absolute`.
+ *
+ * Clicking a `<label>` focuses the control it points at, and a browser scrolls
+ * whatever it focuses into view. This checkbox sits at the *end* of the
+ * document, beside the dialog it controls, because the rule below needs them
+ * adjacent -- so clicking Support in the header threw the page to the bottom
+ * before the dialog even appeared.
+ *
+ * Fixed at the top-left means it is always already in view, so scrolling it
+ * into view moves nothing. It stays 1px and transparent, and stays focusable,
+ * so a keyboard user can still reach and toggle it.
+ *
+ * `.mpick` and `.more` have the same absolute positioning and no such problem:
+ * each of those sits next to its own label, so the scroll is to where the
+ * reader already is. Distance was the bug, not the technique. */
+.modal-toggle { position:fixed;top:0;left:0;width:1px;height:1px;
+                opacity:0;pointer-events:none }
+.modal { position:fixed;inset:0;z-index:60;display:none }
+.modal-toggle:checked+.modal { display:block }
+/* `default`, deliberately, and it is the one label here that keeps it. Clicking
+   the backdrop does close the dialog, so a hand would not be a lie -- but this
+   covers the whole viewport, and a hand across all of it reads as "everything
+   you can see is clickable" rather than as one control. */
+.modal-back { position:absolute;inset:0;background:#0009;display:block;cursor:default }
+.modal-box { position:relative;margin:3vh auto;width:min(1040px,94vw); max-height:94vh;overflow-y:auto;background:var(--bg);border:1px solid var(--line); border-radius:11px;padding:24px 26px 32px;box-shadow:0 24px 60px #0007 }
+.modal-x { cursor:pointer;position:absolute;top:14px;right:16px;width:32px;height:32px; display:flex;align-items:center;justify-content:center;font-size:21px; line-height:1;color:var(--muted);background:var(--card); border:1px solid var(--line);border-radius:7px;text-decoration:none;z-index:2 }
+.modal-x:hover { color:var(--text);border-color:var(--avg);text-decoration:none }
+/* ---------------------------------- a dialog whose head stays put
+ *
+ * `.modal-box` is normally the scroller, which carries the title, the subtitle
+ * and anything under them off the top of the screen. That is fine for a dialog
+ * you read down once. It is wrong for a long list: scroll a hundred rows or
+ * fifty announcements and you are looking at numbers and dates with nothing
+ * left on screen saying what they are.
+ *
+ * So the box becomes a column -- a head that stays, a body that moves -- and
+ * whatever is given `.modal-scroll` takes the scrolling.
+ *
+ * **`min-height:0` is the load-bearing line.** A flex item's automatic minimum
+ * is its own content, so without it the body refuses to shrink, the box grows
+ * past its `max-height`, and the page scrolls instead of the list. It looks
+ * like the rule did nothing.
+ *
+ * Used by the full ranking on the index and by the announcement timeline on a
+ * game page. It lives here rather than in either sheet because both load this
+ * one, and because the trap above is worth writing down once. */
+.modal-tall { display:flex;flex-direction:column;overflow:hidden }
+.modal-scroll { flex:1 1 auto;min-height:0;overflow-y:auto }
+.modal-box h2 { font-size:19px;font-weight:600;margin:0 0 3px;padding-right:44px }
+/* ------------------------------------------- what the charts draw */ .sub { color:var(--muted);font-size:12.5px;margin:0 0 22px }
+.why { color:var(--muted);font-size:12px;margin:0 0 14px }
+.pane .why,.panel .why { min-height:3.2em }
+.stats { display:grid;grid-template-columns:repeat(4,1fr);gap:24px;border-top:1px solid var(--line);padding-top:20px;margin:0 0 26px }
+.stat { padding:0 }
+.stat b { display:block;font-size:24px;font-weight:600;letter-spacing:-.03em;line-height:1.2 }
+.stat span { display:block;color:var(--muted);font-size:11px;margin-top:2px }
+.modal-box h2+.sub { margin-bottom:20px }
+.modal-box .panel h2 { font-size:13px;margin:0 0 3px }
+svg { display:block;width:100%;height:auto }
+
+/* ------------------------------------------ pointing at a line chart
+ *
+ * The figures used to sit in an SVG `<title>`, which is the browser's own
+ * tooltip: it waits about a second and no stylesheet can shorten that. The
+ * review bars gave that up months ago for the same reason; this is the same
+ * fix on a chart that could not simply be made of bars.
+ *
+ * A bar is its own target. A curve's points are three-pixel dots at arbitrary
+ * coordinates, so `charts.hover_cells` builds the targets: one full-height
+ * column per point, reaching halfway to each neighbour, sitting over the
+ * drawing and showing its own tooltip at once.
+ *
+ * The columns are positioned in **percentages** by the builder, because the
+ * `<svg>` above is `width:100%` and scales with its column -- a pixel offset
+ * would line up at exactly one window width.
+ */
+.plot { position:relative }
+.hovers { position:absolute;inset:0;display:block }
+/* Full height, so the reader aims at a column rather than at a dot. No
+   background until hovered: the chart is the picture, this is only the
+   pointing. */
+.hv { position:absolute;top:0;bottom:0;display:block;cursor:default }
+.hv:hover { background:#ffffff0a }
+
+/* Anchored to the plot, not to the column -- the same reasoning as the review
+   bars. A tooltip inside a four-pixel column would be four pixels wide, and at
+   either end of the chart it would hang off the panel. Centred on the pointer's
+   column by `left:50%` and pulled back half its own width. */
+.hv em { position:absolute;bottom:calc(100% - 34px);left:50%;
+         transform:translateX(-50%);
+         visibility:hidden;z-index:4;white-space:nowrap;
+         background:var(--card);border:1px solid var(--line);
+         border-radius:7px;padding:6px 9px;
+         font-style:normal;font-size:11px;line-height:1.4;
+         color:var(--text);text-align:center;
+         box-shadow:0 3px 10px #00000026 }
+.hv em b { display:block;font-weight:600;margin-bottom:1px }
+/* No transition and no delay: the whole point of owning this element. */
+.hv:hover em { visibility:visible }
+/* The first and last columns would push their tooltip off the side. Anchor
+   them to their own edge instead of to their centre. */
+.hv:first-child em { left:0;transform:none }
+.hv:last-child em { left:auto;right:0;transform:none }
+.grid { stroke:var(--grid);stroke-width:1 }
+.ylab { fill:var(--muted);font-size:11px;text-anchor:end;font-family:inherit }
+.xlab { fill:var(--muted);font-size:11px;text-anchor:middle;font-family:inherit }
+.area { fill:var(--avg);opacity:.16 }
+.line-avg { fill:none;stroke:var(--avg);stroke-width:2;stroke-linejoin:round }
+.line-peak { fill:none;stroke:var(--peak);stroke-width:2;stroke-dasharray:4 3;stroke-linejoin:round }
+.hourly { fill:none;stroke:var(--peak);stroke-width:1;opacity:.85;stroke-linejoin:round }
+.dot { fill:var(--avg) }
+.dot-flat { fill:var(--peak) }
+.key { display:flex;gap:16px;font-size:11px;color:var(--muted);margin:10px 0 0 }
+.key i { display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px }
+.key .ring { background:none;border:2px solid var(--avg);border-radius:50% }
+.note { border-left:2px solid var(--blue);padding:2px 0 2px 16px;font-size:12.5px;color:var(--text-soft);margin:0 0 22px }
+.note b { color:var(--text) }
+.mpick { position:absolute;opacity:0;width:0;height:0;pointer-events:none }
+/* Equal columns rather than each button sized to its own month. 'May 2026' and 'September 2026' are five characters apart, and a row that steps in and out with the calendar reads as an accident. The column count travels with the block, since only it knows how many months there are. */.tabs { display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 16px }
+.tab-row { display:grid;gap:8px;flex:1 1 auto;min-width:0 }
+.tabs-label { font-size:12px;color:var(--muted);align-self:center;margin-right:2px }
+.tab { padding:7px 13px;font-size:12px;border:1px solid var(--line);border-radius:6px; color:var(--text-soft);background:var(--card);text-decoration:none;cursor:pointer; user-select:none;text-align:center;white-space:nowrap }
+.tab:hover { border-color:var(--avg);color:var(--text) }
+.mpick:focus-visible~.tabs label { outline:2px solid var(--blue);outline-offset:2px }
+.pane { padding:6px 0 0;margin:0;display:none }
+.pane h3 { margin:0 0 3px }
+/* A month with one number gets the chart's own aspect ratio, so it is exactly as tall as a month that has one and switching moves nothing. */ .nochart { aspect-ratio:760/300;display:flex;align-items:center; justify-content:center;text-align:center;border:1px dashed var(--line); border-radius:8px;padding:20px }
+.nochart b { display:block;font-size:14px;font-weight:550;color:var(--text) }
+.nochart span { display:block;font-size:12px;color:var(--muted);margin-top:6px }
+/* Still a button -- it is reachable and it answers -- but it does not promise a chart. */ .tab-thin { color:var(--muted);border-style:dashed }
+.modal-box footer { border-top:1px solid var(--line);padding-top:14px;margin-top:8px; font-size:11.5px;color:var(--muted) }
+@media(max-width:900px) {
+    .stats { grid-template-columns:repeat(2,1fr) }
+}
+@media(max-width:520px) {
+    .stats { grid-template-columns:1fr }
+    .tab-row { grid-template-columns:repeat(2,minmax(0,1fr))!important }
+    .modal-box { margin:0;width:100vw;max-height:100vh;border-radius:0;padding:18px 14px 26px }
+}
+.hero>div { min-width:0 }
+h1,.description,.hero-meta span,.tags span,.game-link span,.updated-at { overflow-wrap:anywhere }
+.empty-image { background:var(--card) }
+.hero h1 { margin-top:0 }
+#r-2026-06:checked~.panes .p-2026-06{display:block}#r-2026-06:checked~.tabs label[for="r-2026-06"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-07:checked~.panes .p-2026-07{display:block}#r-2026-07:checked~.tabs label[for="r-2026-07"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-08:checked~.panes .p-2026-08{display:block}#r-2026-08:checked~.tabs label[for="r-2026-08"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-09:checked~.panes .p-2026-09{display:block}#r-2026-09:checked~.tabs label[for="r-2026-09"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}.tab-row{grid-template-columns:repeat(4,minmax(0,1fr))}#tl-y0:checked~.tl>.tl-s0{display:block}#tl-y0:checked~.tl-tabs label[for="tl-y0"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y1:checked~.tl>.tl-s1{display:block}#tl-y1:checked~.tl-tabs label[for="tl-y1"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y2:checked~.tl>.tl-s2{display:block}#tl-y2:checked~.tl-tabs label[for="tl-y2"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y3:checked~.tl>.tl-s3{display:block}#tl-y3:checked~.tl-tabs label[for="tl-y3"]{color:var(--magenta);border-bottom-color:var(--magenta)}</style>
+</head>
+<body>
+<!-- The game's own store backdrop, blurred and faded into the page. Steam
+     ships it un-darkened as background_raw, which is what lets the fade be
+     ours and end on whichever background the reader's theme is using. -->
+<div class="pagetop" aria-hidden="true"><img loading="lazy" class="pagetop-art" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/page_bg_raw.jpg?t=1729213776" alt=""></div>
+<div class="wrap" id="top">
+
+<!-- The way back. A reader arriving here from a search engine had no route to
+     the rest of the site before this existed. -->
+<header class="topbar sitebar">
+  <a class="brand stay" href="../"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="none" stroke="var(--blue)" stroke-width="1.7"/><path d="M6 15.5 L10 9.5 L13.5 13.5 L18 6.5" fill="none" stroke="var(--magenta)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>STEAMDB <b>NEXUS</b></span></a>
+</header>
+
+<header class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">Steam app 695600 &middot; updated 13 Sep 2026, 00:07 UTC</p>
+    <h1>This Grand Life</h1>
+    <p class="description">A life simulator that leans heavily into the personal finance aspect. Pay taxes, take out mortgages, trade stocks, buy real estate, start businesses, or grind your way to victory as an employee.</p>
+    <!-- The charts opener sits in the wide column, so its subtitle has room to
+         run to two lines rather than being squeezed under a 340px image. -->
+    <div class="charts-open"><div class="charts-open-copy"><b>History charts</b><span>September 2017 to September 2026</span><label class="go" for="charts-open">Show the detailed charts <span aria-hidden="true">&#8599;</span></label></div><div class="charts-recent" role="group" aria-label="Last 30 days"><span class="charts-recent-title">Last 30 days</span><span class="charts-metric"><b class="down">−0.7</b><small>Gain</small></span><span class="charts-metric"><b class="down">−42.35%</b><small>% gain</small></span><span class="charts-metric"><b>4</b><small>Peak</small></span></div></div>
+  </div>
+  <div class="hero-media">
+    <img loading="lazy" class="header-image" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/header.jpg?t=1729213776" alt="This Grand Life Steam header artwork">
+    <!-- Developer and publisher under the artwork: they belong to the picture
+         more than to the sentence above it, and they were pushing the opener
+         further from the heading it describes. -->
+    <div class="hero-meta"><span>Poking Water Games</span><span>Poking Water Games</span></div>
+  </div>
+</header>
+
+<div class="news-launch-row"><label class="news-launch" for="news-open"><b>News &amp; announcements</b><span>50 updates</span></label></div><div class="hero-stats"><div class="stat"><b>0</b><span>playing now</span></div><div class="stat"><b>2</b><span>24-hour peak</span></div><div class="stat"><b>302</b><span>all-time peak</span></div><div class="stat"><b>0</b><span>average, last 30 days</span></div></div>
+<nav class="header-links" aria-label="Game links"><div class="header-links-grid"><a class="game-link" href="https://store.steampowered.com/app/695600/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10h18l-2-6H5l-2 6Z"/><path d="M4 10v10h16V10M9 20v-6h6v6M8 4l-1 6m9-6 1 6"/></svg><span>Steam store</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="http://pokingwatergames.com/this-grand-life/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span>Official website</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="http://pokingwatergames.com/contact/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 13v-1a8 8 0 0 1 16 0v1M20 16v2a3 3 0 0 1-3 3h-3"/><rect x="3" y="11" width="4" height="7" rx="2"/><rect x="17" y="11" width="4" height="7" rx="2"/></svg><span>Support</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="https://steamcommunity.com/app/695600/discussions/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 15H7l-4 3V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a3 3 0 0 1-3 3h-2Z"/><path d="M8 18h8l5 3V10M7 7h8M7 11h5"/></svg><span>Steam discussions</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div></nav>
+
+<div class="layout">
+  <main><article class="panel"><div class="information-heading"><h3>Game information</h3><span class="updated-at">Updated <b>13 Sep 2026, 00:07 UTC</b></span></div><dl><div class="fact"><dt>App ID</dt><dd>695600</dd></div><div class="fact"><dt>Last updated</dt><dd>19 Jul 2022 <span class="quiet">build 9151539</span></dd></div><div class="fact"><dt>Developer</dt><dd>Poking Water Games</dd></div><div class="fact"><dt>Publisher</dt><dd>Poking Water Games</dd></div><div class="fact"><dt>Release date</dt><dd>17 Apr, 2018</dd></div><div class="fact"><dt>Platforms</dt><dd><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></dd></div><div class="fact"><dt>Download size</dt><dd><span class="plat plat-windows" title="Windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>296 MB</span></dd></div><div class="fact"><dt>Install size</dt><dd><span class="plat plat-windows" title="Windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>308 MB</span></dd></div><div class="fact"><dt>Genres</dt><dd>Indie, RPG, Simulation</dd></div><div class="fact"><dt>Game modes</dt><dd>Single-player</dd></div><div class="fact"><dt>Controller support</dt><dd>Unknown</dd></div><div class="fact"><dt>Achievements</dt><dd>24</dd></div></dl><div class="info-more"><label class="go" for="launch-open">Launch options (1) <span aria-hidden="true">&#8599;</span></label><label class="go" for="saves-open">Cloud saves (2) <span aria-hidden="true">&#8599;</span></label></div></article><article class="panel"><h3>Features &amp; support</h3><div class="feature-section"><h3>Steam features</h3><div class="tags"><span>Steam Achievements</span><span>Steam Trading Cards</span><span>Steam Workshop</span><span>Steam Cloud</span><span>Family Sharing</span></div></div><div class="feature-section"><h3>Controllers &amp; input</h3><div class="tags"></div></div><div class="feature-section"><h3>Accessibility</h3><div class="tags"></div></div></article><article class="panel"><h3>Popular tags</h3><div class="tags"><span>Time Management</span><span>Capitalism</span><span>Economy</span><span>Management</span><span>Survival</span><span>Life Sim</span><span>Education</span><span>Turn-Based Strategy</span><span>Character Customization</span><span>RPG</span><span>2D</span><span>Text-Based</span><span>Choices Matter</span><span>Funny</span><span>Open World</span><span>Simulation</span><span>Moddable</span><span>Cartoon</span><span>Old School</span><span>Singleplayer</span></div></article><details class="fold about-fold" id="about"><summary><span><b>About this game</b><small>Full description from Steam</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="about-copy">This Grand Life is a personal finance simulator where you create a character, manage their money and help them achieve their life goals. Cruise your way through life with a silver spoon, or struggle endlessly to find employment as a convicted felon. You cannot control your past, but you can change your future. What choices will you make?
+
+Inspired by Sierra&#x27;s 1990 game Jones In The Fast Lane, your life is divided into weeks. You try to accomplish as much as you can each week while economic conditions and special events create interesting choices to think about. Do I go to work this week, or take part in the Hot Dog Eating competition at the park? Should I spend time looking for a better job, or stick with my current job until economic conditions improve?
+Current Features:
+
+ Balancing Needs - Core game loop of balancing short-term needs such as hunger, fun, hygiene and health with long-term goals like happiness, wealth and education.
+
+ Stylised City Maps - The game map is based on a real major city, thanks to satellite imagery from the European Space Agency!
+
+ Education System - Study for degrees, diplomas and PHDs, required for some higher level occupations. Go to trade school or university.
+
+ Promising Careers and Dead End Jobs - Prestigious career paths like Banking and Chef, plus lower level occupations like Janitor and Salesperson.
+
+ Progressive Taxation System - The more you earn, the higher your tax bracket.
+
+ Possessions - Fridges, TVs and Computers which help with your short-term needs.
+
+ Collectibles - Collect stamps, coins and other rare items to achieve your long-term goals.
+
+ Subscription Services - Sign up for services that make life easier, like grocery delivery or cable TV.
+
+ Special Events - Home Robbery, Hotdog Eating Competition, Steam Sales and more.
+
+ Detailed Economic Simulation - Inflation, interest rates and economic growth influence your investments and job competition.
+
+ Investment and Debt - Borrow money to achieve your goals or invest for a future where you won&#x27;t have to work. Minimum repayments and interest rates calculated realistically.
+
+ Real Estate - Buy properties through an auction system. Live in it yourself or rent out your properties to tenants.
+
+ Stock Market - Buy and sell shares on the stock market. Watch out for poor corporate management.
+
+ Traits/Privilege System - Begin life with advantages like rich parents, or disadvantages like alcoholism.
+
+ Freelance/Contractor Business - Hire employees, advertise your brand, complete jobs and grow your reputation.
+
+ Tutorial - An interactive tutorial where your mother tells you to get a job.
+
+ Moddability - Create your own careers, courses, locations, possessions and more. All content designed to be highly moddable.</div></div></details><details class="fold" id="content-ratings"><summary><span><b>Content &amp; age ratings</b><small>2 regional ratings</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><section class="rating-list"><h3>Regional ratings</h3><div class="rating-row"><b>DEJUS</b><span>10</span><small></small></div><div class="rating-row"><b>IGRS</b><span>15</span><small>Rokok dan/atau rokok elektronik, minuman beralkohol, narkotika, psikotropika, dan/atau zat adiktif lainnya</small></div></section></div></details><details class="fold" id="requirements"><summary><span><b>System requirements</b><small>Minimum and recommended hardware</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="two"><article class="panel"><h3>Minimum</h3><div class="requirements">Minimum:
+
+OS *: Windows 10, Windows 8, Windows 7 or Windows XP
+
+Processor: 2.0 GHz or faster processor
+
+Memory: 1 GB RAM
+
+Graphics: Intel HD Graphics 4000 / AMD Radeon HD 7400G / NVIDIA GeForce GT 120 or better graphics card with OpenGL 3.3 and later support
+
+Storage: 200 MB available space</div></article><article class="panel"><h3>Recommended</h3><div class="requirements"></div></article></div></div></details><details class="fold" id="languages"><summary><span><b>Supported languages</b><small>1 languages</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><table class="languages"><thead><tr><th>Language</th><th>Full audio</th></tr></thead><tbody><tr><td>English</td><td></td></tr></tbody></table><p class="muted">A blank audio cell means full audio was not marked in the returned language list.</p></div></details><details class="fold" id="media"><summary><span><b>Screenshots &amp; trailers</b><small>Screenshots and trailers</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="gallery"><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_b762006f5ac96df6def91c6b97e3750df3e5c545.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_b762006f5ac96df6def91c6b97e3750df3e5c545.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 1"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_cdc74e6efe0d60ac3885d6159b55510de173dff4.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_cdc74e6efe0d60ac3885d6159b55510de173dff4.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 2"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_820524f595e022edbe0d6da956d046933bf3b9aa.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_820524f595e022edbe0d6da956d046933bf3b9aa.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 3"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_9521f319503728b13d2084a835433c52ce951834.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_9521f319503728b13d2084a835433c52ce951834.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 4"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_161a8eb8b1484166af1872cb4426aa2d858df11c.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_161a8eb8b1484166af1872cb4426aa2d858df11c.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 5"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_cf80f0b3013627a923accadca701db06e7d85aef.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_cf80f0b3013627a923accadca701db06e7d85aef.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 6"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_548146e8f9b7d7e08e5634dbe86521878fa04ced.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_548146e8f9b7d7e08e5634dbe86521878fa04ced.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 7"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_417801aeb435a19de87ad1439a4979a3c254526d.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_417801aeb435a19de87ad1439a4979a3c254526d.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 8"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_13dbb276d3930592969867e3e9e722566cc4c0ff.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_13dbb276d3930592969867e3e9e722566cc4c0ff.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 9"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_6fa0ea5d306325797a3caaef9c4d39889336ebe5.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_6fa0ea5d306325797a3caaef9c4d39889336ebe5.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 10"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_4ea72c650807dd5f45dc0acac1fab5fc32967307.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_4ea72c650807dd5f45dc0acac1fab5fc32967307.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 11"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_2db4b17b0b1cb2e901848abf1f964cd87f647167.1920x1080.jpg?t=1729213776" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/695600/ss_2db4b17b0b1cb2e901848abf1f964cd87f647167.600x338.jpg?t=1729213776" alt="This Grand Life screenshot 12"></a></div><h3>Trailers</h3><div class="gallery"><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256715047/movie.293x165.jpg?t=1524559905" alt="Release Gameplay Trailer"><p>Release Gameplay Trailer</p><a href="https://store.steampowered.com/app/695600/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256705740/movie.293x165.jpg?t=1515732822" alt="Choices Trailer"><p>Choices Trailer</p><a href="https://store.steampowered.com/app/695600/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article></div></div></details><details class="fold" id="achievements"><summary><span><b>Achievements</b><small>Total count and selected achievements</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><p class="muted">24 achievements in total.</p><details class="spoilers"><summary>Show selected achievements (may contain spoilers)</summary><div class="achievement-grid"><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>First Steps</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>Needs And Life Goals</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>Financial Independance</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/11af9328619448cf8ec6ebcc7ba611ef3ca1949b.jpg" alt=""><div><b>Sue Goes To University</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>This Coin Is So Cool</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>Don&#x27;t Want It Anymore</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/11af9328619448cf8ec6ebcc7ba611ef3ca1949b.jpg" alt=""><div><b>Collect Them All</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>Splash Of Color</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>My First Life</b><small>Achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/695600/514b3456fb3480102117126a02c663e42c3ef800.jpg" alt=""><div><b>Winning Ticket</b><small>Achievement</small></div></div></div></details><p><a href="https://steamcommunity.com/stats/695600/achievements/" target="_blank" rel="noopener noreferrer">View all Steam achievements <span aria-hidden="true">&#8599;</span></a></p></div></details></main>
+  <aside><article class="panel reviews s-ok"><h3>Steam reviews</h3><div class="review-score">75.4<span>%</span></div><b class="positive">Mostly Positive</b><p class="muted">240 reviews</p><div class="meter"><i style="width:75.41666666666667%"></i></div><div class="split"><span>181 positive</span><span>59 negative</span></div><div class="rvhist s-ok"><b>Review trend</b><span class="rv-note">last 24 months</span><span class="rv-bars" role="img" aria-label="Review counts per month for the last 24 months, Jul 2022 to Jun 2026 so far"><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jul 2022 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Aug 2022 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sep 2022 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:50.00%"></span></span><em><b>Oct 2022 &middot; <span class="s-mixed">50.0% positive</span></b>1 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:100.00%"></span></span><em><b>Dec 2022 &middot; <span class="s-bad">0.0% positive</span></b>0 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Apr 2023 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>May 2023 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Oct 2023 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Dec 2023 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jan 2024 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Feb 2024 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Apr 2024 &middot; <span class="s-good">100.0% positive</span></b>2 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:50.00%"></span></span><em><b>May 2024 &middot; <span class="s-mixed">50.0% positive</span></b>1 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jun 2024 &middot; <span class="s-good">100.0% positive</span></b>2 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jul 2024 &middot; <span class="s-good">100.0% positive</span></b>2 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Oct 2024 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Nov 2024 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:100.00%"></span></span><em><b>Dec 2024 &middot; <span class="s-bad">0.0% positive</span></b>0 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mar 2025 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Apr 2025 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jul 2025 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Nov 2025 &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:100.00%"></span></span><em><b>Apr 2026 &middot; <span class="s-bad">0.0% positive</span></b>0 positive, 2 negative</em></span><span class="rv-bar rv-part"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Jun 2026 so far &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span></span><span class="rv-span"><span>Jul 2022</span><span>Jun 2026 so far</span></span></div><div class="recent s-good"><b>Last 30 days</b><span class="rv-bars rv-days" role="img" aria-label="Review counts per day for the last 30 days, Mon 11 May to Tue 9 Jun so far"><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mon 11 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 12 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Wed 13 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Thu 14 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Fri 15 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sat 16 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sun 17 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mon 18 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 19 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Wed 20 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Thu 21 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Fri 22 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sat 23 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sun 24 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mon 25 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 26 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Wed 27 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Thu 28 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Fri 29 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sat 30 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sun 31 May</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mon 1 Jun</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 2 Jun</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Wed 3 Jun</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Thu 4 Jun</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Fri 5 Jun</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sat 6 Jun</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sun 7 Jun</b>no reviews</em></span><span class="rv-bar"><span class="rv-up" style="height:0.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mon 8 Jun</b>no reviews</em></span><span class="rv-bar rv-part"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 9 Jun so far &middot; <span class="s-good">100.0% positive</span></b>1 positive, 0 negative</em></span></span><span class="rv-span"><span>Mon 11 May</span><span>Tue 9 Jun so far</span></span></div><p><a href="https://steamcommunity.com/app/695600/reviews/" target="_blank" rel="noopener noreferrer">Show the reviews on Steam <span aria-hidden="true">&#8599;</span></a></p></article><article class="panel"><h3>Steam Deck</h3><div class="deck-status">Unknown</div><p class="muted"></p><a href="https://store.steampowered.com/app/695600/" target="_blank" rel="noopener noreferrer">View compatibility on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="panel"><h3>More like this</h3><ul class="related"><li><a class="stay" href="2274620">Discounty</a></li><li><a class="stay" href="1410710">Democracy 4</a></li><li><a class="stay" href="346900">AdVenture Capitalist</a></li><li><a class="stay" href="1539140">STONKS-9800: Stock Market Simulator</a></li><li><a class="stay" href="646270">60 Parsecs!</a></li><li><a class="stay" href="842150">Wild West Saga: Idle Tycoon Clicker</a></li><li><a class="stay" href="383740">Marble Age: Remastered</a></li><li><a class="stay" href="245470">Democracy 3</a></li></ul></article></aside>
+</div>
+
+<input class="modal-toggle" type="checkbox" id="charts-open"><div class="modal"><label class="modal-back" for="charts-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Player history"><label class="modal-x" for="charts-open" aria-label="Close">&times;</label><h2>Player history</h2><p class="sub">This Grand Life &middot; September 2017 to September 2026</p><div class="stats"><div class="stat"><b>0</b><span>playing now</span></div><div class="stat"><b>2</b><span>24-hour peak</span></div><div class="stat"><b>302</b><span>all-time peak</span></div><div class="stat"><b>0</b><span>average, last 30 days</span></div></div><section class="panel" id="last30"><h2>The last 30 days</h2><p class="why">Every hourly sample, 33 of them, with the daily peak drawn over the top. The saw-tooth is one day: a peak in the evening, a trough before dawn. 12 sample(s) came back as zero between two live hours and were dropped, so the faint line is broken where they were.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">1</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">2</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">3</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">4</text><text class="xlab" x="69.5" y="286">14 Aug</text><text class="xlab" x="155.7" y="286">18 Aug</text><text class="xlab" x="297.1" y="286">24 Aug</text><text class="xlab" x="370.0" y="286">27 Aug</text><text class="xlab" x="427.3" y="286">30 Aug</text><text class="xlab" x="607.5" y="286">06 Sep</text><path class="hourly" d="M62.0,150.3 L64.6,208.1 L67.1,150.3 L69.5,92.4 L72.0,92.4 L74.6,150.3 L77.5,150.3 L80.2,92.4 L83.0,150.3 L85.7,208.1 M155.7,208.1 L155.7,208.1 M216.2,266.0 L217.1,266.0 M297.1,266.0 L301.4,266.0 M330.3,208.1 L333.2,208.1 M370.0,150.3 L372.9,208.1 L375.9,208.1 L378.9,208.1 M418.1,150.3 L421.2,208.1 L424.2,34.5 L427.3,208.1 M432.1,208.1 L434.9,208.1 M489.7,208.1 L489.7,208.1 M607.5,208.1 L607.5,208.1 M738.6,208.1 L739.2,150.3 L742.7,266.0 L746.0,266.0"/><path class="area" d="M69.5,92.4 C74.0,111.7 78.5,140.1 83.0,150.3 C107.2,205.0 131.4,189.2 155.7,208.1 C175.8,223.9 196.0,266.0 216.2,266.0 C243.2,266.0 270.1,266.0 297.1,266.0 C308.2,266.0 319.2,225.8 330.3,208.1 C343.5,187.0 356.7,155.9 370.0,150.3 C388.0,142.6 406.1,-81.0 424.2,34.5 C425.2,41.1 426.2,208.1 427.3,208.1 C448.1,208.1 468.9,208.1 489.7,208.1 C528.9,208.1 568.2,208.1 607.5,208.1 C651.4,208.1 695.3,169.5 739.2,150.3 L739.2,266.0 L69.5,266.0 Z"/><path class="line-avg" d="M69.5,92.4 C74.0,111.7 78.5,140.1 83.0,150.3 C107.2,205.0 131.4,189.2 155.7,208.1 C175.8,223.9 196.0,266.0 216.2,266.0 C243.2,266.0 270.1,266.0 297.1,266.0 C308.2,266.0 319.2,225.8 330.3,208.1 C343.5,187.0 356.7,155.9 370.0,150.3 C388.0,142.6 406.1,-81.0 424.2,34.5 C425.2,41.1 426.2,208.1 427.3,208.1 C448.1,208.1 468.9,208.1 489.7,208.1 C528.9,208.1 568.2,208.1 607.5,208.1 C651.4,208.1 695.3,169.5 739.2,150.3"/><circle class="dot" cx="69.5" cy="92.4" r="3"/><circle class="dot" cx="83.0" cy="150.3" r="3"/><circle class="dot" cx="155.7" cy="208.1" r="3"/><circle class="dot" cx="216.2" cy="266.0" r="3"/><circle class="dot" cx="297.1" cy="266.0" r="3"/><circle class="dot" cx="330.3" cy="208.1" r="3"/><circle class="dot" cx="370.0" cy="150.3" r="3"/><circle class="dot" cx="424.2" cy="34.5" r="3"/><circle class="dot" cx="427.3" cy="208.1" r="3"/><circle class="dot" cx="489.7" cy="208.1" r="3"/><circle class="dot" cx="607.5" cy="208.1" r="3"/><circle class="dot" cx="739.2" cy="150.3" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:1.8722%"><em><b>14 Aug 2026</b>3 peak</em></span><span class="hv" style="left:10.0301%;width:5.6704%"><em><b>15 Aug 2026</b>2 peak</em></span><span class="hv" style="left:15.7005%;width:8.7636%"><em><b>18 Aug 2026</b>1 peak</em></span><span class="hv" style="left:24.4640%;width:9.3048%"><em><b>20 Aug 2026</b>0 peak</em></span><span class="hv" style="left:33.7688%;width:7.5058%"><em><b>24 Aug 2026</b>0 peak</em></span><span class="hv" style="left:41.2746%;width:4.7951%"><em><b>25 Aug 2026</b>1 peak</em></span><span class="hv" style="left:46.0697%;width:6.1778%"><em><b>27 Aug 2026</b>2 peak</em></span><span class="hv" style="left:52.2475%;width:3.7700%"><em><b>29 Aug 2026</b>4 peak</em></span><span class="hv" style="left:56.0175%;width:4.3078%"><em><b>30 Aug 2026</b>1 peak</em></span><span class="hv" style="left:60.3254%;width:11.8549%"><em><b>01 Sep 2026</b>1 peak</em></span><span class="hv" style="left:72.1803%;width:16.4170%"><em><b>06 Sep 2026</b>1 peak</em></span><span class="hv" style="left:88.5973%;width:9.5606%"><em><b>12 Sep 2026</b>2 peak</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Daily peak</span><span><i style="background:var(--peak)"></i>Every hourly sample</span></div></section><section class="panel"><h2>All time</h2><p class="why">109 months, September 2017 to September 2026. The highest number of people in the game at once, each month, on a time axis -- a gap in the record stays a gap.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players by month, all time" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">82</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">163</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">245</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">326</text><text class="xlab" x="62.0" y="286">2017</text><text class="xlab" x="175.6" y="286">2019</text><text class="xlab" x="290.1" y="286">2020</text><text class="xlab" x="403.7" y="286">2022</text><text class="xlab" x="517.9" y="286">2023</text><text class="xlab" x="631.8" y="286">2025</text><text class="xlab" x="746.0" y="286">2026</text><path class="area" d="M62.0,265.2 C64.1,259.1 66.2,250.6 68.2,246.8 C70.4,242.9 72.5,240.6 74.7,242.2 C76.8,243.8 78.9,254.2 80.9,256.0 C83.1,258.0 85.2,255.0 87.4,253.7 C89.5,252.5 91.7,248.3 93.8,248.4 C95.8,248.4 97.7,260.6 99.7,254.5 C101.8,247.7 104.0,35.9 106.1,34.5 C108.2,33.1 110.3,227.3 112.4,239.2 C114.5,251.4 116.7,250.6 118.8,251.4 C120.9,252.3 123.0,253.4 125.1,254.5 C127.2,255.7 129.4,257.4 131.5,258.3 C133.7,259.2 135.8,259.7 138.0,259.9 C140.0,260.0 142.1,259.1 144.2,259.1 C146.3,259.1 148.5,259.1 150.6,259.1 C152.7,259.1 154.8,257.1 156.9,256.8 C159.0,256.5 161.2,257.8 163.3,257.6 C165.5,257.3 167.6,255.9 169.8,255.3 C171.7,254.7 173.7,253.2 175.6,253.7 C177.8,254.3 179.9,259.7 182.1,259.1 C184.2,258.6 186.2,250.7 188.3,250.7 C190.5,250.6 192.6,258.4 194.8,259.1 C196.8,259.8 198.9,255.3 201.0,255.3 C203.2,255.2 205.3,259.7 207.5,259.1 C209.6,258.5 211.8,252.1 213.9,251.4 C216.0,250.8 218.1,254.8 220.2,255.3 C222.3,255.8 224.5,254.2 226.6,254.5 C228.7,254.8 230.8,257.0 232.8,256.8 C235.0,256.6 237.1,253.7 239.3,253.0 C241.4,252.2 243.6,252.2 245.7,252.2 C247.8,252.2 249.8,252.2 251.8,252.2 C253.9,252.2 256.1,258.4 258.2,258.3 C260.3,258.3 262.4,252.0 264.5,252.2 C266.6,252.4 268.8,259.3 270.9,259.9 C273.0,260.5 275.1,255.9 277.2,256.0 C279.3,256.1 281.5,260.1 283.6,260.6 C285.8,261.1 287.9,259.6 290.1,259.1 C292.2,258.6 294.2,257.6 296.3,257.6 C298.5,257.6 300.6,257.6 302.8,257.6 C304.8,257.6 306.9,259.6 309.0,259.9 C311.2,260.1 313.3,259.1 315.5,259.1 C317.6,259.1 319.8,259.9 321.9,259.9 C323.8,259.9 325.8,259.9 327.7,259.9 C329.9,259.9 332.0,257.4 334.2,257.6 C336.3,257.7 338.3,260.2 340.4,260.6 C342.6,261.0 344.7,260.1 346.9,259.9 C349.0,259.6 351.0,258.9 353.1,259.1 C355.3,259.4 357.4,261.1 359.6,261.4 C361.7,261.7 363.9,260.6 366.0,260.6 C368.1,260.6 370.2,260.6 372.3,260.6 C374.4,260.6 376.6,259.7 378.7,259.9 C380.8,260.0 382.9,261.4 385.0,261.4 C387.1,261.4 389.3,261.4 391.4,259.9 C393.6,258.3 395.7,249.9 397.9,249.9 C399.8,249.9 401.7,257.7 403.7,259.1 C405.8,260.6 408.0,260.6 410.1,260.6 C412.2,260.6 414.3,260.6 416.4,260.6 C418.5,260.6 420.7,263.7 422.8,262.2 C424.9,260.7 427.0,251.9 429.1,251.4 C431.2,251.0 433.4,258.8 435.5,259.9 C437.7,260.9 439.8,257.3 442.0,257.6 C444.1,257.8 446.1,261.0 448.2,261.4 C450.4,261.8 452.5,260.0 454.7,259.9 C456.8,259.7 458.8,260.6 460.9,260.6 C463.1,260.6 465.2,259.6 467.4,259.9 C469.5,260.1 471.7,261.9 473.8,262.2 C475.8,262.4 477.7,261.6 479.6,261.4 C481.8,261.1 483.9,260.6 486.1,260.6 C488.2,260.6 490.3,261.4 492.3,261.4 C494.5,261.4 496.6,261.4 498.8,261.4 C500.9,261.4 502.9,261.4 505.0,261.4 C507.2,261.4 509.3,260.5 511.5,260.6 C513.6,260.8 515.8,262.4 517.9,262.2 C520.0,261.9 522.1,259.2 524.2,259.1 C526.3,259.0 528.5,261.4 530.6,261.4 C532.7,261.4 534.8,261.4 536.9,261.4 C539.0,261.4 541.2,258.5 543.3,258.3 C545.5,258.2 547.6,260.4 549.8,260.6 C551.8,260.9 553.8,259.9 555.8,259.9 C558.0,259.9 560.1,259.9 562.3,259.9 C564.3,259.9 566.4,258.2 568.5,258.3 C570.6,258.5 572.8,259.6 574.9,260.6 C577.0,261.6 579.1,264.4 581.2,264.5 C583.3,264.5 585.5,260.8 587.6,260.6 C589.8,260.5 591.9,263.5 594.1,263.7 C596.2,263.9 598.3,262.3 600.3,262.2 C602.5,262.0 604.6,262.7 606.8,262.9 C608.9,263.2 610.9,263.8 613.0,263.7 C615.2,263.6 617.3,262.0 619.5,262.2 C621.6,262.3 623.8,264.2 625.9,264.5 C627.9,264.7 629.8,264.1 631.8,263.7 C633.9,263.3 636.1,262.3 638.2,262.2 C640.3,262.0 642.4,262.7 644.5,262.9 C646.6,263.2 648.8,263.7 650.9,263.7 C653.0,263.7 655.1,262.9 657.1,262.9 C659.3,262.9 661.4,263.7 663.6,263.7 C665.7,263.7 667.9,263.7 670.0,263.7 C672.1,263.7 674.2,264.5 676.3,264.5 C678.4,264.5 680.6,263.7 682.7,263.7 C684.8,263.7 686.9,264.7 689.0,264.5 C691.1,264.2 693.3,262.2 695.4,262.2 C697.6,262.2 699.7,262.2 701.9,262.2 C703.8,262.2 705.8,261.3 707.7,261.4 C709.9,261.5 712.0,262.5 714.2,262.9 C716.2,263.3 718.3,263.4 720.4,263.7 C722.6,264.0 724.7,264.5 726.9,264.5 C728.9,264.5 731.0,264.5 733.1,264.5 C735.2,264.5 737.4,262.9 739.5,262.9 C741.7,262.9 743.8,264.0 746.0,264.5 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,265.2 C64.1,259.1 66.2,250.6 68.2,246.8 C70.4,242.9 72.5,240.6 74.7,242.2 C76.8,243.8 78.9,254.2 80.9,256.0 C83.1,258.0 85.2,255.0 87.4,253.7 C89.5,252.5 91.7,248.3 93.8,248.4 C95.8,248.4 97.7,260.6 99.7,254.5 C101.8,247.7 104.0,35.9 106.1,34.5 C108.2,33.1 110.3,227.3 112.4,239.2 C114.5,251.4 116.7,250.6 118.8,251.4 C120.9,252.3 123.0,253.4 125.1,254.5 C127.2,255.7 129.4,257.4 131.5,258.3 C133.7,259.2 135.8,259.7 138.0,259.9 C140.0,260.0 142.1,259.1 144.2,259.1 C146.3,259.1 148.5,259.1 150.6,259.1 C152.7,259.1 154.8,257.1 156.9,256.8 C159.0,256.5 161.2,257.8 163.3,257.6 C165.5,257.3 167.6,255.9 169.8,255.3 C171.7,254.7 173.7,253.2 175.6,253.7 C177.8,254.3 179.9,259.7 182.1,259.1 C184.2,258.6 186.2,250.7 188.3,250.7 C190.5,250.6 192.6,258.4 194.8,259.1 C196.8,259.8 198.9,255.3 201.0,255.3 C203.2,255.2 205.3,259.7 207.5,259.1 C209.6,258.5 211.8,252.1 213.9,251.4 C216.0,250.8 218.1,254.8 220.2,255.3 C222.3,255.8 224.5,254.2 226.6,254.5 C228.7,254.8 230.8,257.0 232.8,256.8 C235.0,256.6 237.1,253.7 239.3,253.0 C241.4,252.2 243.6,252.2 245.7,252.2 C247.8,252.2 249.8,252.2 251.8,252.2 C253.9,252.2 256.1,258.4 258.2,258.3 C260.3,258.3 262.4,252.0 264.5,252.2 C266.6,252.4 268.8,259.3 270.9,259.9 C273.0,260.5 275.1,255.9 277.2,256.0 C279.3,256.1 281.5,260.1 283.6,260.6 C285.8,261.1 287.9,259.6 290.1,259.1 C292.2,258.6 294.2,257.6 296.3,257.6 C298.5,257.6 300.6,257.6 302.8,257.6 C304.8,257.6 306.9,259.6 309.0,259.9 C311.2,260.1 313.3,259.1 315.5,259.1 C317.6,259.1 319.8,259.9 321.9,259.9 C323.8,259.9 325.8,259.9 327.7,259.9 C329.9,259.9 332.0,257.4 334.2,257.6 C336.3,257.7 338.3,260.2 340.4,260.6 C342.6,261.0 344.7,260.1 346.9,259.9 C349.0,259.6 351.0,258.9 353.1,259.1 C355.3,259.4 357.4,261.1 359.6,261.4 C361.7,261.7 363.9,260.6 366.0,260.6 C368.1,260.6 370.2,260.6 372.3,260.6 C374.4,260.6 376.6,259.7 378.7,259.9 C380.8,260.0 382.9,261.4 385.0,261.4 C387.1,261.4 389.3,261.4 391.4,259.9 C393.6,258.3 395.7,249.9 397.9,249.9 C399.8,249.9 401.7,257.7 403.7,259.1 C405.8,260.6 408.0,260.6 410.1,260.6 C412.2,260.6 414.3,260.6 416.4,260.6 C418.5,260.6 420.7,263.7 422.8,262.2 C424.9,260.7 427.0,251.9 429.1,251.4 C431.2,251.0 433.4,258.8 435.5,259.9 C437.7,260.9 439.8,257.3 442.0,257.6 C444.1,257.8 446.1,261.0 448.2,261.4 C450.4,261.8 452.5,260.0 454.7,259.9 C456.8,259.7 458.8,260.6 460.9,260.6 C463.1,260.6 465.2,259.6 467.4,259.9 C469.5,260.1 471.7,261.9 473.8,262.2 C475.8,262.4 477.7,261.6 479.6,261.4 C481.8,261.1 483.9,260.6 486.1,260.6 C488.2,260.6 490.3,261.4 492.3,261.4 C494.5,261.4 496.6,261.4 498.8,261.4 C500.9,261.4 502.9,261.4 505.0,261.4 C507.2,261.4 509.3,260.5 511.5,260.6 C513.6,260.8 515.8,262.4 517.9,262.2 C520.0,261.9 522.1,259.2 524.2,259.1 C526.3,259.0 528.5,261.4 530.6,261.4 C532.7,261.4 534.8,261.4 536.9,261.4 C539.0,261.4 541.2,258.5 543.3,258.3 C545.5,258.2 547.6,260.4 549.8,260.6 C551.8,260.9 553.8,259.9 555.8,259.9 C558.0,259.9 560.1,259.9 562.3,259.9 C564.3,259.9 566.4,258.2 568.5,258.3 C570.6,258.5 572.8,259.6 574.9,260.6 C577.0,261.6 579.1,264.4 581.2,264.5 C583.3,264.5 585.5,260.8 587.6,260.6 C589.8,260.5 591.9,263.5 594.1,263.7 C596.2,263.9 598.3,262.3 600.3,262.2 C602.5,262.0 604.6,262.7 606.8,262.9 C608.9,263.2 610.9,263.8 613.0,263.7 C615.2,263.6 617.3,262.0 619.5,262.2 C621.6,262.3 623.8,264.2 625.9,264.5 C627.9,264.7 629.8,264.1 631.8,263.7 C633.9,263.3 636.1,262.3 638.2,262.2 C640.3,262.0 642.4,262.7 644.5,262.9 C646.6,263.2 648.8,263.7 650.9,263.7 C653.0,263.7 655.1,262.9 657.1,262.9 C659.3,262.9 661.4,263.7 663.6,263.7 C665.7,263.7 667.9,263.7 670.0,263.7 C672.1,263.7 674.2,264.5 676.3,264.5 C678.4,264.5 680.6,263.7 682.7,263.7 C684.8,263.7 686.9,264.7 689.0,264.5 C691.1,264.2 693.3,262.2 695.4,262.2 C697.6,262.2 699.7,262.2 701.9,262.2 C703.8,262.2 705.8,261.3 707.7,261.4 C709.9,261.5 712.0,262.5 714.2,262.9 C716.2,263.3 718.3,263.4 720.4,263.7 C722.6,264.0 724.7,264.5 726.9,264.5 C728.9,264.5 731.0,264.5 733.1,264.5 C735.2,264.5 737.4,262.9 739.5,262.9 C741.7,262.9 743.8,264.0 746.0,264.5"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:0.4107%"><em><b>Sep 2017</b>1 monthly peak</em></span><span class="hv" style="left:8.5686%;width:0.8351%"><em><b>Oct 2017</b>25 monthly peak</em></span><span class="hv" style="left:9.4037%;width:0.8351%"><em><b>Nov 2017</b>31 monthly peak</em></span><span class="hv" style="left:10.2388%;width:0.8351%"><em><b>Dec 2017</b>13 monthly peak</em></span><span class="hv" style="left:11.0739%;width:0.8488%"><em><b>Jan 2018</b>16 monthly peak</em></span><span class="hv" style="left:11.9227%;width:0.8077%"><em><b>Feb 2018</b>23 monthly peak</em></span><span class="hv" style="left:12.7305%;width:0.8077%"><em><b>Mar 2018</b>15 monthly peak</em></span><span class="hv" style="left:13.5382%;width:0.8351%"><em><b>Apr 2018</b>302 monthly peak</em></span><span class="hv" style="left:14.3733%;width:0.8351%"><em><b>May 2018</b>35 monthly peak</em></span><span class="hv" style="left:15.2084%;width:0.8351%"><em><b>Jun 2018</b>19 monthly peak</em></span><span class="hv" style="left:16.0435%;width:0.8351%"><em><b>Jul 2018</b>15 monthly peak</em></span><span class="hv" style="left:16.8786%;width:0.8488%"><em><b>Aug 2018</b>10 monthly peak</em></span><span class="hv" style="left:17.7274%;width:0.8351%"><em><b>Sep 2018</b>8 monthly peak</em></span><span class="hv" style="left:18.5625%;width:0.8351%"><em><b>Oct 2018</b>9 monthly peak</em></span><span class="hv" style="left:19.3976%;width:0.8351%"><em><b>Nov 2018</b>9 monthly peak</em></span><span class="hv" style="left:20.2327%;width:0.8351%"><em><b>Dec 2018</b>12 monthly peak</em></span><span class="hv" style="left:21.0678%;width:0.8488%"><em><b>Jan 2019</b>11 monthly peak</em></span><span class="hv" style="left:21.9166%;width:0.8077%"><em><b>Feb 2019</b>14 monthly peak</em></span><span class="hv" style="left:22.7244%;width:0.8077%"><em><b>Mar 2019</b>16 monthly peak</em></span><span class="hv" style="left:23.5321%;width:0.8351%"><em><b>Apr 2019</b>9 monthly peak</em></span><span class="hv" style="left:24.3672%;width:0.8351%"><em><b>May 2019</b>20 monthly peak</em></span><span class="hv" style="left:25.2023%;width:0.8351%"><em><b>Jun 2019</b>9 monthly peak</em></span><span class="hv" style="left:26.0374%;width:0.8351%"><em><b>Jul 2019</b>14 monthly peak</em></span><span class="hv" style="left:26.8725%;width:0.8488%"><em><b>Aug 2019</b>9 monthly peak</em></span><span class="hv" style="left:27.7213%;width:0.8351%"><em><b>Sep 2019</b>19 monthly peak</em></span><span class="hv" style="left:28.5564%;width:0.8351%"><em><b>Oct 2019</b>14 monthly peak</em></span><span class="hv" style="left:29.3915%;width:0.8351%"><em><b>Nov 2019</b>15 monthly peak</em></span><span class="hv" style="left:30.2267%;width:0.8351%"><em><b>Dec 2019</b>12 monthly peak</em></span><span class="hv" style="left:31.0618%;width:0.8488%"><em><b>Jan 2020</b>17 monthly peak</em></span><span class="hv" style="left:31.9106%;width:0.8214%"><em><b>Feb 2020</b>18 monthly peak</em></span><span class="hv" style="left:32.7320%;width:0.8214%"><em><b>Mar 2020</b>18 monthly peak</em></span><span class="hv" style="left:33.5534%;width:0.8351%"><em><b>Apr 2020</b>10 monthly peak</em></span><span class="hv" style="left:34.3885%;width:0.8351%"><em><b>May 2020</b>18 monthly peak</em></span><span class="hv" style="left:35.2236%;width:0.8351%"><em><b>Jun 2020</b>8 monthly peak</em></span><span class="hv" style="left:36.0587%;width:0.8351%"><em><b>Jul 2020</b>13 monthly peak</em></span><span class="hv" style="left:36.8938%;width:0.8488%"><em><b>Aug 2020</b>7 monthly peak</em></span><span class="hv" style="left:37.7426%;width:0.8351%"><em><b>Sep 2020</b>9 monthly peak</em></span><span class="hv" style="left:38.5777%;width:0.8351%"><em><b>Oct 2020</b>11 monthly peak</em></span><span class="hv" style="left:39.4128%;width:0.8351%"><em><b>Nov 2020</b>11 monthly peak</em></span><span class="hv" style="left:40.2479%;width:0.8351%"><em><b>Dec 2020</b>8 monthly peak</em></span><span class="hv" style="left:41.0831%;width:0.8488%"><em><b>Jan 2021</b>9 monthly peak</em></span><span class="hv" style="left:41.9319%;width:0.8077%"><em><b>Feb 2021</b>8 monthly peak</em></span><span class="hv" style="left:42.7396%;width:0.8077%"><em><b>Mar 2021</b>8 monthly peak</em></span><span class="hv" style="left:43.5473%;width:0.8351%"><em><b>Apr 2021</b>11 monthly peak</em></span><span class="hv" style="left:44.3824%;width:0.8351%"><em><b>May 2021</b>7 monthly peak</em></span><span class="hv" style="left:45.2175%;width:0.8351%"><em><b>Jun 2021</b>8 monthly peak</em></span><span class="hv" style="left:46.0526%;width:0.8351%"><em><b>Jul 2021</b>9 monthly peak</em></span><span class="hv" style="left:46.8877%;width:0.8488%"><em><b>Aug 2021</b>6 monthly peak</em></span><span class="hv" style="left:47.7365%;width:0.8351%"><em><b>Sep 2021</b>7 monthly peak</em></span><span class="hv" style="left:48.5716%;width:0.8351%"><em><b>Oct 2021</b>7 monthly peak</em></span><span class="hv" style="left:49.4068%;width:0.8351%"><em><b>Nov 2021</b>8 monthly peak</em></span><span class="hv" style="left:50.2419%;width:0.8351%"><em><b>Dec 2021</b>6 monthly peak</em></span><span class="hv" style="left:51.0770%;width:0.8488%"><em><b>Jan 2022</b>8 monthly peak</em></span><span class="hv" style="left:51.9258%;width:0.8077%"><em><b>Feb 2022</b>21 monthly peak</em></span><span class="hv" style="left:52.7335%;width:0.8077%"><em><b>Mar 2022</b>9 monthly peak</em></span><span class="hv" style="left:53.5412%;width:0.8351%"><em><b>Apr 2022</b>7 monthly peak</em></span><span class="hv" style="left:54.3763%;width:0.8351%"><em><b>May 2022</b>7 monthly peak</em></span><span class="hv" style="left:55.2114%;width:0.8351%"><em><b>Jun 2022</b>5 monthly peak</em></span><span class="hv" style="left:56.0465%;width:0.8351%"><em><b>Jul 2022</b>19 monthly peak</em></span><span class="hv" style="left:56.8817%;width:0.8488%"><em><b>Aug 2022</b>8 monthly peak</em></span><span class="hv" style="left:57.7305%;width:0.8351%"><em><b>Sep 2022</b>11 monthly peak</em></span><span class="hv" style="left:58.5656%;width:0.8351%"><em><b>Oct 2022</b>6 monthly peak</em></span><span class="hv" style="left:59.4007%;width:0.8351%"><em><b>Nov 2022</b>8 monthly peak</em></span><span class="hv" style="left:60.2358%;width:0.8351%"><em><b>Dec 2022</b>7 monthly peak</em></span><span class="hv" style="left:61.0709%;width:0.8488%"><em><b>Jan 2023</b>8 monthly peak</em></span><span class="hv" style="left:61.9197%;width:0.8077%"><em><b>Feb 2023</b>5 monthly peak</em></span><span class="hv" style="left:62.7274%;width:0.8077%"><em><b>Mar 2023</b>6 monthly peak</em></span><span class="hv" style="left:63.5351%;width:0.8351%"><em><b>Apr 2023</b>7 monthly peak</em></span><span class="hv" style="left:64.3702%;width:0.8351%"><em><b>May 2023</b>6 monthly peak</em></span><span class="hv" style="left:65.2054%;width:0.8351%"><em><b>Jun 2023</b>6 monthly peak</em></span><span class="hv" style="left:66.0405%;width:0.8351%"><em><b>Jul 2023</b>6 monthly peak</em></span><span class="hv" style="left:66.8756%;width:0.8488%"><em><b>Aug 2023</b>7 monthly peak</em></span><span class="hv" style="left:67.7244%;width:0.8351%"><em><b>Sep 2023</b>5 monthly peak</em></span><span class="hv" style="left:68.5595%;width:0.8351%"><em><b>Oct 2023</b>9 monthly peak</em></span><span class="hv" style="left:69.3946%;width:0.8351%"><em><b>Nov 2023</b>6 monthly peak</em></span><span class="hv" style="left:70.2297%;width:0.8351%"><em><b>Dec 2023</b>6 monthly peak</em></span><span class="hv" style="left:71.0648%;width:0.8488%"><em><b>Jan 2024</b>10 monthly peak</em></span><span class="hv" style="left:71.9136%;width:0.8214%"><em><b>Feb 2024</b>7 monthly peak</em></span><span class="hv" style="left:72.7350%;width:0.8214%"><em><b>Mar 2024</b>8 monthly peak</em></span><span class="hv" style="left:73.5564%;width:0.8351%"><em><b>Apr 2024</b>8 monthly peak</em></span><span class="hv" style="left:74.3915%;width:0.8351%"><em><b>May 2024</b>10 monthly peak</em></span><span class="hv" style="left:75.2267%;width:0.8351%"><em><b>Jun 2024</b>7 monthly peak</em></span><span class="hv" style="left:76.0618%;width:0.8351%"><em><b>Jul 2024</b>2 monthly peak</em></span><span class="hv" style="left:76.8969%;width:0.8488%"><em><b>Aug 2024</b>7 monthly peak</em></span><span class="hv" style="left:77.7457%;width:0.8351%"><em><b>Sep 2024</b>3 monthly peak</em></span><span class="hv" style="left:78.5808%;width:0.8351%"><em><b>Oct 2024</b>5 monthly peak</em></span><span class="hv" style="left:79.4159%;width:0.8351%"><em><b>Nov 2024</b>4 monthly peak</em></span><span class="hv" style="left:80.2510%;width:0.8351%"><em><b>Dec 2024</b>3 monthly peak</em></span><span class="hv" style="left:81.0861%;width:0.8488%"><em><b>Jan 2025</b>5 monthly peak</em></span><span class="hv" style="left:81.9349%;width:0.8077%"><em><b>Feb 2025</b>2 monthly peak</em></span><span class="hv" style="left:82.7426%;width:0.8077%"><em><b>Mar 2025</b>3 monthly peak</em></span><span class="hv" style="left:83.5503%;width:0.8351%"><em><b>Apr 2025</b>5 monthly peak</em></span><span class="hv" style="left:84.3855%;width:0.8351%"><em><b>May 2025</b>4 monthly peak</em></span><span class="hv" style="left:85.2206%;width:0.8351%"><em><b>Jun 2025</b>3 monthly peak</em></span><span class="hv" style="left:86.0557%;width:0.8351%"><em><b>Jul 2025</b>4 monthly peak</em></span><span class="hv" style="left:86.8908%;width:0.8488%"><em><b>Aug 2025</b>3 monthly peak</em></span><span class="hv" style="left:87.7396%;width:0.8351%"><em><b>Sep 2025</b>3 monthly peak</em></span><span class="hv" style="left:88.5747%;width:0.8351%"><em><b>Oct 2025</b>2 monthly peak</em></span><span class="hv" style="left:89.4098%;width:0.8351%"><em><b>Nov 2025</b>3 monthly peak</em></span><span class="hv" style="left:90.2449%;width:0.8351%"><em><b>Dec 2025</b>2 monthly peak</em></span><span class="hv" style="left:91.0800%;width:0.8488%"><em><b>Jan 2026</b>5 monthly peak</em></span><span class="hv" style="left:91.9288%;width:0.8077%"><em><b>Feb 2026</b>5 monthly peak</em></span><span class="hv" style="left:92.7365%;width:0.8077%"><em><b>Mar 2026</b>6 monthly peak</em></span><span class="hv" style="left:93.5443%;width:0.8351%"><em><b>Apr 2026</b>4 monthly peak</em></span><span class="hv" style="left:94.3794%;width:0.8351%"><em><b>May 2026</b>3 monthly peak</em></span><span class="hv" style="left:95.2145%;width:0.8351%"><em><b>Jun 2026</b>2 monthly peak</em></span><span class="hv" style="left:96.0496%;width:0.8351%"><em><b>Jul 2026</b>2 monthly peak</em></span><span class="hv" style="left:96.8847%;width:0.8488%"><em><b>Aug 2026</b>4 monthly peak</em></span><span class="hv" style="left:97.7335%;width:0.4244%"><em><b>Sep 2026</b>2 monthly peak</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Monthly peak</span></div></section><section class="panel"><h2>The last four months</h2><p class="why">The highest number of people in the game at once, each month. Four, because four is as far back as the source keeps anything finer than one figure a month.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players by month" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">1</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">2</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">3</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">4</text><text class="xlab" x="62.0" y="286">June 2026</text><text class="xlab" x="290.0" y="286">July 2026</text><text class="xlab" x="518.0" y="286">August 2026</text><text class="xlab" x="746.0" y="286">September 2026</text><path class="area" d="M62.0,150.3 C138.0,150.3 214.0,150.3 290.0,150.3 C366.0,150.3 442.0,34.5 518.0,34.5 C594.0,34.5 670.0,111.7 746.0,150.3 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,150.3 C138.0,150.3 214.0,150.3 290.0,150.3 C366.0,150.3 442.0,34.5 518.0,34.5 C594.0,34.5 670.0,111.7 746.0,150.3"/><circle class="dot" cx="62.0" cy="150.3" r="5"/><circle class="dot" cx="290.0" cy="150.3" r="5"/><circle class="dot" cx="518.0" cy="34.5" r="5"/><circle class="dot" cx="746.0" cy="150.3" r="5"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:15.0000%"><em><b>June 2026</b>2 peak — daily detail below</em></span><span class="hv" style="left:23.1579%;width:30.0000%"><em><b>July 2026</b>2 peak — daily detail below</em></span><span class="hv" style="left:53.1579%;width:30.0000%"><em><b>August 2026</b>4 peak — daily detail below</em></span><span class="hv" style="left:83.1579%;width:15.0000%"><em><b>September 2026</b>2 peak — daily detail below</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Monthly peak</span><span><i class="ring"></i>Has finer data below</span></div></section><input class="mpick" type="radio" name="month" id="r-2026-06"><input class="mpick" type="radio" name="month" id="r-2026-07"><input class="mpick" type="radio" name="month" id="r-2026-08"><input class="mpick" type="radio" name="month" id="r-2026-09" checked><div class="tabs"><span class="tabs-label">Open a month:</span><div class="tab-row"><label class="tab" for="r-2026-06">June 2026</label><label class="tab" for="r-2026-07">July 2026</label><label class="tab" for="r-2026-08">August 2026</label><label class="tab" for="r-2026-09">September 2026</label></div></div><div class="panes"><section class="pane p-2026-06"><h3>June 2026</h3><p class="why">8 days, each one the highest figure that day. The source keeps no hourly detail this far back. 4 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">1</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">2</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">3</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">4</text><text class="xlab" x="62.0" y="286">01 Jun</text><text class="xlab" x="492.7" y="286">18 Jun</text><text class="xlab" x="518.0" y="286">19 Jun</text><text class="xlab" x="568.7" y="286">21 Jun</text><text class="xlab" x="619.3" y="286">23 Jun</text><text class="xlab" x="670.0" y="286">25 Jun</text><text class="xlab" x="720.7" y="286">27 Jun</text><text class="xlab" x="746.0" y="286">28 Jun</text><path class="area" d="M62.0,141.0 C205.6,141.0 349.1,141.0 492.7,141.0 C501.1,141.0 509.6,187.9 518.0,203.5 C534.9,234.8 551.8,266.0 568.7,266.0 C585.6,266.0 602.4,224.3 619.3,203.5 C636.2,182.7 653.1,141.0 670.0,141.0 C686.9,141.0 703.8,141.0 720.7,141.0 C729.1,141.0 737.6,141.0 746.0,141.0 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,141.0 C205.6,141.0 349.1,141.0 492.7,141.0 C501.1,141.0 509.6,187.9 518.0,203.5 C534.9,234.8 551.8,266.0 568.7,266.0 C585.6,266.0 602.4,224.3 619.3,203.5 C636.2,182.7 653.1,141.0 670.0,141.0 C686.9,141.0 703.8,141.0 720.7,141.0 C729.1,141.0 737.6,141.0 746.0,141.0"/><circle class="dot" cx="62.0" cy="141.0" r="3"/><circle class="dot" cx="492.7" cy="141.0" r="3"/><circle class="dot" cx="518.0" cy="203.5" r="3"/><circle class="dot" cx="568.7" cy="266.0" r="3"/><circle class="dot" cx="619.3" cy="203.5" r="3"/><circle class="dot" cx="670.0" cy="141.0" r="3"/><circle class="dot" cx="720.7" cy="141.0" r="3"/><circle class="dot" cx="746.0" cy="141.0" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:28.3333%"><em><b>01 Jun 2026</b>2 peak</em></span><span class="hv" style="left:36.4912%;width:30.0000%"><em><b>18 Jun 2026</b>2 peak</em></span><span class="hv" style="left:66.4912%;width:5.0000%"><em><b>19 Jun 2026</b>1 peak</em></span><span class="hv" style="left:71.4912%;width:6.6667%"><em><b>21 Jun 2026</b>0 peak</em></span><span class="hv" style="left:78.1579%;width:6.6667%"><em><b>23 Jun 2026</b>1 peak</em></span><span class="hv" style="left:84.8246%;width:6.6667%"><em><b>25 Jun 2026</b>2 peak</em></span><span class="hv" style="left:91.4912%;width:5.0000%"><em><b>27 Jun 2026</b>2 peak</em></span><span class="hv" style="left:96.4912%;width:1.6667%"><em><b>28 Jun 2026</b>2 peak</em></span></span></div></section><section class="pane p-2026-07"><h3>July 2026</h3><p class="why">12 days, each one the highest figure that day. The source keeps no hourly detail this far back. 5 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">1</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">2</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">3</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">4</text><text class="xlab" x="62.0" y="286">03 Jul</text><text class="xlab" x="159.7" y="286">07 Jul</text><text class="xlab" x="306.3" y="286">13 Jul</text><text class="xlab" x="477.3" y="286">20 Jul</text><text class="xlab" x="550.6" y="286">23 Jul</text><text class="xlab" x="721.6" y="286">30 Jul</text><path class="area" d="M62.0,203.5 C70.1,182.7 78.3,147.9 86.4,141.0 C110.9,120.2 135.3,203.5 159.7,203.5 C167.9,203.5 176.0,203.5 184.1,203.5 C224.9,203.5 265.6,203.5 306.3,203.5 C338.9,203.5 371.4,203.5 404.0,203.5 C428.4,203.5 452.9,141.0 477.3,141.0 C493.6,141.0 509.9,141.0 526.1,141.0 C534.3,141.0 542.4,203.5 550.6,203.5 C558.7,203.5 566.9,203.5 575.0,203.5 C623.9,203.5 672.7,266.0 721.6,266.0 C729.7,266.0 737.9,266.0 746.0,266.0 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,203.5 C70.1,182.7 78.3,147.9 86.4,141.0 C110.9,120.2 135.3,203.5 159.7,203.5 C167.9,203.5 176.0,203.5 184.1,203.5 C224.9,203.5 265.6,203.5 306.3,203.5 C338.9,203.5 371.4,203.5 404.0,203.5 C428.4,203.5 452.9,141.0 477.3,141.0 C493.6,141.0 509.9,141.0 526.1,141.0 C534.3,141.0 542.4,203.5 550.6,203.5 C558.7,203.5 566.9,203.5 575.0,203.5 C623.9,203.5 672.7,266.0 721.6,266.0 C729.7,266.0 737.9,266.0 746.0,266.0"/><circle class="dot" cx="62.0" cy="203.5" r="3"/><circle class="dot" cx="86.4" cy="141.0" r="3"/><circle class="dot" cx="159.7" cy="203.5" r="3"/><circle class="dot" cx="184.1" cy="203.5" r="3"/><circle class="dot" cx="306.3" cy="203.5" r="3"/><circle class="dot" cx="404.0" cy="203.5" r="3"/><circle class="dot" cx="477.3" cy="141.0" r="3"/><circle class="dot" cx="526.1" cy="141.0" r="3"/><circle class="dot" cx="550.6" cy="203.5" r="3"/><circle class="dot" cx="575.0" cy="203.5" r="3"/><circle class="dot" cx="721.6" cy="266.0" r="3"/><circle class="dot" cx="746.0" cy="266.0" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:1.6071%"><em><b>03 Jul 2026</b>1 peak</em></span><span class="hv" style="left:9.7650%;width:6.4286%"><em><b>04 Jul 2026</b>2 peak</em></span><span class="hv" style="left:16.1936%;width:6.4286%"><em><b>07 Jul 2026</b>1 peak</em></span><span class="hv" style="left:22.6222%;width:9.6429%"><em><b>08 Jul 2026</b>1 peak</em></span><span class="hv" style="left:32.2650%;width:14.4643%"><em><b>13 Jul 2026</b>1 peak</em></span><span class="hv" style="left:46.7293%;width:11.2500%"><em><b>17 Jul 2026</b>1 peak</em></span><span class="hv" style="left:57.9793%;width:8.0357%"><em><b>20 Jul 2026</b>2 peak</em></span><span class="hv" style="left:66.0150%;width:4.8214%"><em><b>22 Jul 2026</b>2 peak</em></span><span class="hv" style="left:70.8365%;width:3.2143%"><em><b>23 Jul 2026</b>1 peak</em></span><span class="hv" style="left:74.0508%;width:11.2500%"><em><b>24 Jul 2026</b>1 peak</em></span><span class="hv" style="left:85.3008%;width:11.2500%"><em><b>30 Jul 2026</b>0 peak</em></span><span class="hv" style="left:96.5508%;width:1.6071%"><em><b>31 Jul 2026</b>0 peak</em></span></span></div></section><section class="pane p-2026-08"><h3>August 2026</h3><p class="why">17 days, each one the highest figure that day. The source keeps no hourly detail this far back. 10 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">1</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">2</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">3</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">4</text><text class="xlab" x="62.0" y="286">01 Aug</text><text class="xlab" x="132.7" y="286">04 Aug</text><text class="xlab" x="226.9" y="286">08 Aug</text><text class="xlab" x="344.7" y="286">13 Aug</text><text class="xlab" x="392.1" y="286">15 Aug</text><text class="xlab" x="529.0" y="286">20 Aug</text><text class="xlab" x="646.3" y="286">25 Aug</text><text class="xlab" x="687.1" y="286">27 Aug</text><text class="xlab" x="746.0" y="286">30 Aug</text><path class="area" d="M62.0,266.0 C69.9,266.0 77.7,266.0 85.6,266.0 C101.3,266.0 117.0,266.0 132.7,266.0 C148.4,266.0 164.1,266.0 179.8,266.0 C195.5,266.0 211.2,266.0 226.9,266.0 C242.6,266.0 258.3,266.0 274.0,266.0 C297.6,266.0 321.1,92.4 344.7,92.4 C355.8,92.4 367.0,92.4 378.2,92.4 C382.8,92.4 387.5,140.1 392.1,150.3 C417.0,205.0 441.9,189.2 466.8,208.1 C487.5,223.9 508.3,266.0 529.0,266.0 C556.7,266.0 584.5,266.0 612.2,266.0 C623.5,266.0 634.9,200.3 646.3,208.1 C652.6,212.5 658.8,272.8 665.1,266.0 C672.4,258.0 679.8,156.6 687.1,150.3 C705.7,134.3 724.3,-80.1 742.8,34.5 C743.9,41.0 744.9,150.3 746.0,208.1 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,266.0 C69.9,266.0 77.7,266.0 85.6,266.0 C101.3,266.0 117.0,266.0 132.7,266.0 C148.4,266.0 164.1,266.0 179.8,266.0 C195.5,266.0 211.2,266.0 226.9,266.0 C242.6,266.0 258.3,266.0 274.0,266.0 C297.6,266.0 321.1,92.4 344.7,92.4 C355.8,92.4 367.0,92.4 378.2,92.4 C382.8,92.4 387.5,140.1 392.1,150.3 C417.0,205.0 441.9,189.2 466.8,208.1 C487.5,223.9 508.3,266.0 529.0,266.0 C556.7,266.0 584.5,266.0 612.2,266.0 C623.5,266.0 634.9,200.3 646.3,208.1 C652.6,212.5 658.8,272.8 665.1,266.0 C672.4,258.0 679.8,156.6 687.1,150.3 C705.7,134.3 724.3,-80.1 742.8,34.5 C743.9,41.0 744.9,150.3 746.0,208.1"/><circle class="dot" cx="62.0" cy="266.0" r="3"/><circle class="dot" cx="85.6" cy="266.0" r="3"/><circle class="dot" cx="132.7" cy="266.0" r="3"/><circle class="dot" cx="179.8" cy="266.0" r="3"/><circle class="dot" cx="226.9" cy="266.0" r="3"/><circle class="dot" cx="274.0" cy="266.0" r="3"/><circle class="dot" cx="344.7" cy="92.4" r="3"/><circle class="dot" cx="378.2" cy="92.4" r="3"/><circle class="dot" cx="392.1" cy="150.3" r="3"/><circle class="dot" cx="466.8" cy="208.1" r="3"/><circle class="dot" cx="529.0" cy="266.0" r="3"/><circle class="dot" cx="612.2" cy="266.0" r="3"/><circle class="dot" cx="646.3" cy="208.1" r="3"/><circle class="dot" cx="665.1" cy="266.0" r="3"/><circle class="dot" cx="687.1" cy="150.3" r="3"/><circle class="dot" cx="742.8" cy="34.5" r="3"/><circle class="dot" cx="746.0" cy="208.1" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:1.5497%"><em><b>01 Aug 2026</b>0 peak</em></span><span class="hv" style="left:9.7076%;width:4.6491%"><em><b>02 Aug 2026</b>0 peak</em></span><span class="hv" style="left:14.3566%;width:6.1987%"><em><b>04 Aug 2026</b>0 peak</em></span><span class="hv" style="left:20.5554%;width:6.1987%"><em><b>06 Aug 2026</b>0 peak</em></span><span class="hv" style="left:26.7541%;width:6.1987%"><em><b>08 Aug 2026</b>0 peak</em></span><span class="hv" style="left:32.9529%;width:7.7484%"><em><b>10 Aug 2026</b>0 peak</em></span><span class="hv" style="left:40.7013%;width:6.8544%"><em><b>13 Aug 2026</b>3 peak</em></span><span class="hv" style="left:47.5558%;width:3.1204%"><em><b>14 Aug 2026</b>3 peak</em></span><span class="hv" style="left:50.6762%;width:5.8289%"><em><b>15 Aug 2026</b>2 peak</em></span><span class="hv" style="left:56.5050%;width:9.0086%"><em><b>18 Aug 2026</b>1 peak</em></span><span class="hv" style="left:65.5136%;width:9.5649%"><em><b>20 Aug 2026</b>0 peak</em></span><span class="hv" style="left:75.0785%;width:7.7157%"><em><b>24 Aug 2026</b>0 peak</em></span><span class="hv" style="left:82.7942%;width:3.4823%"><em><b>25 Aug 2026</b>1 peak</em></span><span class="hv" style="left:86.2765%;width:2.6837%"><em><b>26 Aug 2026</b>0 peak</em></span><span class="hv" style="left:88.9602%;width:5.1137%"><em><b>27 Aug 2026</b>2 peak</em></span><span class="hv" style="left:94.0739%;width:3.8754%"><em><b>29 Aug 2026</b>4 peak</em></span><span class="hv" style="left:97.9493%;width:0.2086%"><em><b>30 Aug 2026</b>1 peak</em></span></span></div></section><section class="pane p-2026-09"><h3>September 2026</h3><p class="why">8 days, each one the highest figure that day. The source keeps no hourly detail this far back. 6 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">1</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">2</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">3</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">4</text><text class="xlab" x="62.0" y="286">01 Sep</text><text class="xlab" x="111.0" y="286">02 Sep</text><text class="xlab" x="159.1" y="286">03 Sep</text><text class="xlab" x="222.8" y="286">04 Sep</text><text class="xlab" x="384.9" y="286">06 Sep</text><text class="xlab" x="587.9" y="286">10 Sep</text><text class="xlab" x="656.6" y="286">11 Sep</text><text class="xlab" x="746.0" y="286">12 Sep</text><path class="area" d="M62.0,203.5 C78.3,224.3 94.7,266.0 111.0,266.0 C127.1,266.0 143.1,266.0 159.1,266.0 C180.4,266.0 201.6,266.0 222.8,266.0 C276.8,266.0 330.9,205.6 384.9,203.5 C452.6,200.9 520.2,266.0 587.9,266.0 C610.8,266.0 633.7,266.0 656.6,266.0 C686.4,266.0 716.2,182.7 746.0,141.0 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,203.5 C78.3,224.3 94.7,266.0 111.0,266.0 C127.1,266.0 143.1,266.0 159.1,266.0 C180.4,266.0 201.6,266.0 222.8,266.0 C276.8,266.0 330.9,205.6 384.9,203.5 C452.6,200.9 520.2,266.0 587.9,266.0 C610.8,266.0 633.7,266.0 656.6,266.0 C686.4,266.0 716.2,182.7 746.0,141.0"/><circle class="dot" cx="62.0" cy="203.5" r="3"/><circle class="dot" cx="111.0" cy="266.0" r="3"/><circle class="dot" cx="159.1" cy="266.0" r="3"/><circle class="dot" cx="222.8" cy="266.0" r="3"/><circle class="dot" cx="384.9" cy="203.5" r="3"/><circle class="dot" cx="587.9" cy="266.0" r="3"/><circle class="dot" cx="656.6" cy="266.0" r="3"/><circle class="dot" cx="746.0" cy="141.0" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:3.2243%"><em><b>01 Sep 2026</b>1 peak</em></span><span class="hv" style="left:11.3822%;width:6.3914%"><em><b>02 Sep 2026</b>0 peak</em></span><span class="hv" style="left:17.7735%;width:7.3535%"><em><b>03 Sep 2026</b>0 peak</em></span><span class="hv" style="left:25.1270%;width:14.8517%"><em><b>04 Sep 2026</b>0 peak</em></span><span class="hv" style="left:39.9787%;width:24.0225%"><em><b>06 Sep 2026</b>1 peak</em></span><span class="hv" style="left:64.0012%;width:17.8781%"><em><b>10 Sep 2026</b>0 peak</em></span><span class="hv" style="left:81.8793%;width:10.3998%"><em><b>11 Sep 2026</b>0 peak</em></span><span class="hv" style="left:92.2791%;width:5.8788%"><em><b>12 Sep 2026</b>2 peak</em></span></span></div></section></div><footer>Nothing here is interpolated or estimated; where a sample is missing the line is broken.</footer></div></div><input class="modal-toggle" type="checkbox" id="news-open"><div class="modal"><label class="modal-back" for="news-open" aria-label="Close"></label><div class="modal-box tl-box modal-tall" role="dialog" aria-modal="true" aria-label="News and announcements"><label class="modal-x" for="news-open" aria-label="Close">&times;</label><h2>News &amp; announcements</h2><p class="sub">This Grand Life &middot; 50 developer announcements, Nov 2017 to Jun 2023 &middot; times in UTC</p><input class="tl-pick" type="radio" name="tl-year" id="tl-y0" checked><input class="tl-pick" type="radio" name="tl-year" id="tl-y1"><input class="tl-pick" type="radio" name="tl-year" id="tl-y2"><input class="tl-pick" type="radio" name="tl-year" id="tl-y3"><div class="tl-tabs"><label for="tl-y0">2023<b>1</b></label><label for="tl-y1">2022<b>2</b></label><label for="tl-y2">2018<b>27</b></label><label for="tl-y3">2017<b>20</b></label></div><div class="tl modal-scroll"><section class="tl-year tl-s0"><div class="tl-month"><h3>June</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-06-07T02:39:58+00:00">7 Jun<i>02:39</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5129083846333740703" target="_blank" rel="noopener noreferrer">This Grand Life 2 Announcement <span aria-hidden="true">&#8599;</span></a><p>A sequel is in the works, grander and lifi-er than the first! Changes include multi-person households with aging, colony sim-style character management, a preferences-driven character system and an expanded inflation-driven economic system.…</p><small>PokingWaterGames</small></div></li></ol></div></section><section class="tl-year tl-s1"><div class="tl-month"><h3>July</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-07-19T21:10:31+00:00">19 Jul<i>21:10</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4937651144704688521" target="_blank" rel="noopener noreferrer">Release 1.3 - Hyperinflation Mode <span aria-hidden="true">&#8599;</span></a><p>The central banks have lost control. Prices are increasing at an alarming rate. Economic growth is stalling and money-less clouds loom over the horizon. Welcome to Hyperinflation Mode, a new setting for This Grand Life in 2022.…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2022-07-15T07:40:47+00:00">15 Jul<i>07:40</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4937651144688069892" target="_blank" rel="noopener noreferrer">Tiniest update ever, not grand at all <span aria-hidden="true">&#8599;</span></a><p>Very small change that&#x27;s been bugging me for years, default difficulty is now born in a public hospital and no longer on a golden pedestal.</p><small>Patch notes</small></div></li></ol></div></section><section class="tl-year tl-s2"><div class="tl-month"><h3>May</h3><ol class="tl-list"><li class="tl-item"><time datetime="2018-05-17T02:36:27+00:00">17 May<i>02:36</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2391853754533976184" target="_blank" rel="noopener noreferrer">Release 1.2 - Survival Mode and the Hospital <span aria-hidden="true">&#8599;</span></a><p>This update features a new Survival Mode, Hospital location and doctor career path. Survival Mode In Survival Mode you have been diagnosed with Zombitus, a terminal disease with no cure. Doctors have given you a few months to a few years to…</p><small>PokingWaterGames</small></div></li></ol></div><div class="tl-month"><h3>April</h3><ol class="tl-list"><li class="tl-item"><time datetime="2018-04-24T08:55:08+00:00">24 Apr<i>08:55</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2758894130329749834" target="_blank" rel="noopener noreferrer">New Trailer Uploaded <span aria-hidden="true">&#8599;</span></a><p>I&#x27;ve uploaded a new trailer that should give people a better idea on the core gameplay of This Grand Life (first one on the store page). I think the other trailer emphasized the advanced features too much, so some players weren&#x27;t getting…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-04-17T18:18:39+00:00">17 Apr<i>18:18</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2758894130305868078" target="_blank" rel="noopener noreferrer">This Grand Life is fully launched! <span aria-hidden="true">&#8599;</span></a><p>This Grand Life has now been fully released onto the main branch. A big thank you to all the players who have been on this journey with me. We&#x27;ve grown our careers, bought our first homes, become landlords, started our own businesses and…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-04-04T04:36:04+00:00">4 Apr<i>04:36</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2394101748793627334" target="_blank" rel="noopener noreferrer">This Grand Life TEST branch updated to release <span aria-hidden="true">&#8599;</span></a><p>With This Grand Life&#x27;s full launch coming up on April 17th, I have updated the TEST branch to Release 1.00. On launch day, this version will be put on the main branch and everywhere else. The main additions are a local scoreboard and the…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-04-04T04:36:04+00:00">4 Apr<i>04:36</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766149" target="_blank" rel="noopener noreferrer">This Grand Life TEST branch updated to release <span aria-hidden="true">&#8599;</span></a><p>With This Grand Life&#x27;s full launch coming up on April 17th, I have updated the TEST branch to Release 1.00. On launch day, this version will be put on the main branch and everywhere else. The main additions are a local scoreboard and the…</p><small>Patch notes</small></div></li></ol></div><div class="tl-month"><h3>March</h3><ol class="tl-list"><li class="tl-item"><time datetime="2018-03-09T23:48:31+00:00">9 Mar<i>23:48</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2363699913376103493" target="_blank" rel="noopener noreferrer">Alpha 2.6 - Balancing and Other Improvements <span aria-hidden="true">&#8599;</span></a><p>Alpha 2.6 has been released. This is mostly a re-balancing and minor improvements update. Now your business supervisors can auto-buy materials to the amount you set at the start of each week, as long as you have the money to afford it.…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-03-09T23:48:31+00:00">9 Mar<i>23:48</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766271" target="_blank" rel="noopener noreferrer">Alpha 2.6 - Balancing and Other Improvements <span aria-hidden="true">&#8599;</span></a><p>Alpha 2.6 has been released. This is mostly a re-balancing and minor improvements update. Now your business supervisors can auto-buy materials to the amount you set at the start of each week, as long as you have the money to afford it.…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2018-03-01T21:02:38+00:00">1 Mar<i>21:02</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2363699280658111143" target="_blank" rel="noopener noreferrer">Oops, I dropped these... Steam Trading Cards!! <span aria-hidden="true">&#8599;</span></a><p>That&#x27;s right, This Grand Life has been deemed worthy of Steam Trading Cards and you should see them dropping into your inventory soon. Enjoy!…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-03-01T21:02:38+00:00">1 Mar<i>21:02</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766385" target="_blank" rel="noopener noreferrer">Oops, I dropped these... Steam Trading Cards!! <span aria-hidden="true">&#8599;</span></a><p>That&#x27;s right, This Grand Life has been deemed worthy of Steam Trading Cards and you should see them dropping into your inventory soon. Enjoy!…</p><small>PokingWaterGames</small></div></li></ol></div><div class="tl-month"><h3>February</h3><ol class="tl-list"><li class="tl-item"><time datetime="2018-02-23T23:28:28+00:00">23 Feb<i>23:28</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2361446846771348475" target="_blank" rel="noopener noreferrer">Release Launch Date Announcement <span aria-hidden="true">&#8599;</span></a><p>The release launch date is set for This Grand Life on 17th April, 2018! http://cdn.akamai.steamstatic.com/steamcommunity/public/images/clans/30574261/600db12beb1ad87a0be1932de9de063d60c3cdb6.jpg What does this mean? This means there won&#x27;t…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-02-23T23:28:28+00:00">23 Feb<i>23:28</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766495" target="_blank" rel="noopener noreferrer">Release Launch Date Announcement <span aria-hidden="true">&#8599;</span></a><p>The release launch date is set for This Grand Life on 17th April, 2018! http://cdn.akamai.steamstatic.com/steamcommunity/public/images/clans/30574261/600db12beb1ad87a0be1932de9de063d60c3cdb6.jpg What does this mean? This means there won&#x27;t…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-02-14T20:09:59+00:00">14 Feb<i>20:09</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2363698013322301844" target="_blank" rel="noopener noreferrer">Alpha 2.5 - Relationships Part 2: Family And Children <span aria-hidden="true">&#8599;</span></a><p>Alpha 2.53 has been released, just in time for Valentine&#x27;s Day (almost). I started talking about the dating portion of the game in the last update. After some tweaking over the past week, here is how the family portion works.…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-02-14T20:09:59+00:00">14 Feb<i>20:09</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766600" target="_blank" rel="noopener noreferrer">Alpha 2.5 - Relationships Part 2: Family And Children <span aria-hidden="true">&#8599;</span></a><p>Alpha 2.53 has been released, just in time for Valentine&#x27;s Day (almost). I started talking about the dating portion of the game in the last update. After some tweaking over the past week, here is how the family portion works.…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2018-02-06T22:51:16+00:00">6 Feb<i>22:51</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2363696743818791860" target="_blank" rel="noopener noreferrer">Alpha 2.5 - Relationships Part 1: Dating And Marriage <span aria-hidden="true">&#8599;</span></a><p>The Steam test server has been updated to Alpha 2.5 with the new relationships and family feature. If all goes well, it will be released to everyone next week. This will likely be the final major feature before Release in a few months.…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-02-06T22:51:16+00:00">6 Feb<i>22:51</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766724" target="_blank" rel="noopener noreferrer">Alpha 2.5 - Relationships Part 1: Dating And Marriage <span aria-hidden="true">&#8599;</span></a><p>The Steam test server has been updated to Alpha 2.5 with the new relationships and family feature. If all goes well, it will be released to everyone next week. This will likely be the final major feature before Release in a few months.…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-02-02T00:47:44+00:00">2 Feb<i>00:47</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2363696743801016013" target="_blank" rel="noopener noreferrer">Alpha 2.44 and City Poll <span aria-hidden="true">&#8599;</span></a><p>Some minor optimizations in this update. Also, to get an idea of what kind of city players want next I&#x27;ve created a poll. You can vote at the link below: Which city would you like to see in This Grand Life?…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-02-02T00:47:44+00:00">2 Feb<i>00:47</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766830" target="_blank" rel="noopener noreferrer">Alpha 2.44 and City Poll <span aria-hidden="true">&#8599;</span></a><p>Some minor optimizations in this update. Also, to get an idea of what kind of city players want next I&#x27;ve created a poll. You can vote at the link below: Which city would you like to see in This Grand Life?…</p><small>Patch notes</small></div></li></ol></div><div class="tl-month"><h3>January</h3><ol class="tl-list"><li class="tl-item"><time datetime="2018-01-25T15:31:28+00:00">25 Jan<i>15:31</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2356940714982085516" target="_blank" rel="noopener noreferrer">Alpha 2.43 Minor Update <span aria-hidden="true">&#8599;</span></a><p>Not much to report this week, still working away on the relationships feature. Here&#x27;s a work-in-progress for the date window, where you&#x27;ll be doing things to make your partner happy…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-01-25T15:31:28+00:00">25 Jan<i>15:31</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687766932" target="_blank" rel="noopener noreferrer">Alpha 2.43 Minor Update <span aria-hidden="true">&#8599;</span></a><p>Not much to report this week, still working away on the relationships feature. Here&#x27;s a work-in-progress for the date window, where you&#x27;ll be doing things to make your partner happy…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2018-01-17T04:14:10+00:00">17 Jan<i>04:14</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2356940080937462629" target="_blank" rel="noopener noreferrer">Alpha 2.4 – Workshop Support and more Advanced City Options <span aria-hidden="true">&#8599;</span></a><p>Steam Workshop Hooray! It&#x27;s arrived. Steam Workshop support is now available for This Grand Life, which means modders can create their own Cities, Career paths, Education courses, Collectibles and so on. If you want to subscribe/play a mod…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-01-17T04:14:10+00:00">17 Jan<i>04:14</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767040" target="_blank" rel="noopener noreferrer">Alpha 2.4 – Workshop Support and more Advanced City Options <span aria-hidden="true">&#8599;</span></a><p>Steam Workshop Hooray! It&#x27;s arrived. Steam Workshop support is now available for This Grand Life, which means modders can create their own Cities, Career paths, Education courses, Collectibles and so on. If you want to subscribe/play a mod…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2018-01-12T03:45:53+00:00">12 Jan<i>03:45</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2747626897932676778" target="_blank" rel="noopener noreferrer">Workshop support is coming next week! <span aria-hidden="true">&#8599;</span></a><p>Small update this week, also wanted to let everyone know that Steam Workshop support is coming next week to This Grand Life!! I&#x27;ve uploaded a guide on how to create the city map images to the Guides section, so anyone (with enough…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-01-12T03:45:53+00:00">12 Jan<i>03:45</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767172" target="_blank" rel="noopener noreferrer">Workshop support is coming next week! <span aria-hidden="true">&#8599;</span></a><p>Small update this week, also wanted to let everyone know that Steam Workshop support is coming next week to This Grand Life!! I&#x27;ve uploaded a guide on how to create the city map images to the Guides section, so anyone (with enough…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2018-01-03T15:13:06+00:00">3 Jan<i>15:13</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2284879949554123165" target="_blank" rel="noopener noreferrer">Alpha 2.3 - Amsterdam and Advanced City Options <span aria-hidden="true">&#8599;</span></a><p>This update adds Amsterdam as a playable map and advanced city options to make each playthrough even more unique. Also a reminder that the game&#x27;s price will be increasing next week and the demo has been updated to the latest version.…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2018-01-03T15:13:06+00:00">3 Jan<i>15:13</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767288" target="_blank" rel="noopener noreferrer">Alpha 2.3 - Amsterdam and Advanced City Options <span aria-hidden="true">&#8599;</span></a><p>This update adds Amsterdam as a playable map and advanced city options to make each playthrough even more unique. Also a reminder that the game&#x27;s price will be increasing next week and the demo has been updated to the latest version.…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2018-01-01T09:17:02+00:00">1 Jan<i>09:17</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2284879949546002874" target="_blank" rel="noopener noreferrer">Test branch updated <span aria-hidden="true">&#8599;</span></a><p>The test_public branch has been updated to Alpha 2.3. It contains Amsterdam as a new playable city and advanced city options. If no problems are reported in a few days, I will release the update to everyone else.…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2018-01-01T09:17:02+00:00">1 Jan<i>09:17</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767407" target="_blank" rel="noopener noreferrer">Test branch updated <span aria-hidden="true">&#8599;</span></a><p>The test_public branch has been updated to Alpha 2.3. It contains Amsterdam as a new playable city and advanced city options. If no problems are reported in a few days, I will release the update to everyone else.…</p><small>PokingWaterGames</small></div></li></ol></div></section><section class="tl-year tl-s3"><div class="tl-month"><h3>December</h3><ol class="tl-list"><li class="tl-item"><time datetime="2017-12-28T02:31:06+00:00">28 Dec<i>02:31</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2284879949530530505" target="_blank" rel="noopener noreferrer">Price Increase Announcement and Alpha 2.21 Minor Update <span aria-hidden="true">&#8599;</span></a><p>Just as inflation relentlessly drives the prices of products higher in This Grand Life, the game is getting a real-life price increase shortly after the end of the Steam Winter Sale. If you haven&#x27;t bought the game and it seems interesting…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-12-28T02:31:06+00:00">28 Dec<i>02:31</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767520" target="_blank" rel="noopener noreferrer">Price Increase Announcement and Alpha 2.21 Minor Update <span aria-hidden="true">&#8599;</span></a><p>Just as inflation relentlessly drives the prices of products higher in This Grand Life, the game is getting a real-life price increase shortly after the end of the Steam Winter Sale. If you haven&#x27;t bought the game and it seems interesting…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2017-12-20T21:54:51+00:00">20 Dec<i>21:54</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2284879949504541714" target="_blank" rel="noopener noreferrer">Alpha 2.2 - Statistics, Achievements and Expensive Items <span aria-hidden="true">&#8599;</span></a><p>https://youtu.be/yc5zbu6S7WE In this update I&#x27;ll talk about end-game statistics, achievements, some new expensive items and other miscellaneous changes. The process of adding Steam achievements had the unexpected issue of not being able to…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-12-20T21:54:51+00:00">20 Dec<i>21:54</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767652" target="_blank" rel="noopener noreferrer">Alpha 2.2 - Statistics, Achievements and Expensive Items <span aria-hidden="true">&#8599;</span></a><p>https://youtu.be/yc5zbu6S7WE In this update I&#x27;ll talk about end-game statistics, achievements, some new expensive items and other miscellaneous changes. The process of adding Steam achievements had the unexpected issue of not being able to…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2017-12-12T08:14:56+00:00">12 Dec<i>08:14</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2163281492535154915" target="_blank" rel="noopener noreferrer">Alpha 2.11 Minor Update <span aria-hidden="true">&#8599;</span></a><p>A minor update has been released with the following changes: =Alpha 2.11 Update= Added delete button on saved games page Added page arrows for real estate on possessions page Added withdraw all button to savings account Added business…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-12-12T08:14:56+00:00">12 Dec<i>08:14</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767779" target="_blank" rel="noopener noreferrer">Alpha 2.11 Minor Update <span aria-hidden="true">&#8599;</span></a><p>A minor update has been released with the following changes: =Alpha 2.11 Update= Added delete button on saved games page Added page arrows for real estate on possessions page Added withdraw all button to savings account Added business…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2017-12-07T20:35:14+00:00">7 Dec<i>20:35</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2163281492518944641" target="_blank" rel="noopener noreferrer">Alpha 2.1 - New York City and Improved Events System <span aria-hidden="true">&#8599;</span></a><p>This update features New York as a new playable city, an updated Sydney map and an improved events system with more tempting special events. https://youtu.be/tB8x3dI48wg New York In New York, you can start your life in the poorer…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-12-07T20:35:14+00:00">7 Dec<i>20:35</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767875" target="_blank" rel="noopener noreferrer">Alpha 2.1 - New York City and Improved Events System <span aria-hidden="true">&#8599;</span></a><p>This update features New York as a new playable city, an updated Sydney map and an improved events system with more tempting special events. https://youtu.be/tB8x3dI48wg New York In New York, you can start your life in the poorer…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2017-12-05T11:50:34+00:00">5 Dec<i>11:50</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2152021858914178272" target="_blank" rel="noopener noreferrer">Test branch updated <span aria-hidden="true">&#8599;</span></a><p>The test_public branch has been updated to Alpha 2.1. It contains New York as a new playable city, an updated Sydney map and an improved events system. If no problems are reported in 3 days, I will release the update to everyone else.…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2017-12-05T11:50:34+00:00">5 Dec<i>11:50</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687767984" target="_blank" rel="noopener noreferrer">Test branch updated <span aria-hidden="true">&#8599;</span></a><p>The test_public branch has been updated to Alpha 2.1. It contains New York as a new playable city, an updated Sydney map and an improved events system. If no problems are reported in 3 days, I will release the update to everyone else.…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2017-12-01T07:59:50+00:00">1 Dec<i>07:59</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2152021858899144908" target="_blank" rel="noopener noreferrer">Alpha 2.02 Minor Update <span aria-hidden="true">&#8599;</span></a><p>A minor update has been released with the following changes: =Alpha 2.02= - Fixed owning multiple businesses of same type causing supervisor confusion on available jobs - Added &#x27;Live&#x27; button to possessions panel for owned property - Fixed…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-12-01T07:59:50+00:00">1 Dec<i>07:59</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687768097" target="_blank" rel="noopener noreferrer">Alpha 2.02 Minor Update <span aria-hidden="true">&#8599;</span></a><p>A minor update has been released with the following changes: =Alpha 2.02= - Fixed owning multiple businesses of same type causing supervisor confusion on available jobs - Added &#x27;Live&#x27; button to possessions panel for owned property - Fixed…</p><small>Patch notes</small></div></li></ol></div><div class="tl-month"><h3>November</h3><ol class="tl-list"><li class="tl-item"><time datetime="2017-11-22T22:34:35+00:00">22 Nov<i>22:34</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2149769425912449891" target="_blank" rel="noopener noreferrer">This Grand Life Alpha 2.0 - Education Loans, Factory and Engineering, and Transport Options <span aria-hidden="true">&#8599;</span></a><p>This update features the new education loans, the factory location and engineer career path, and new transport options. https://youtu.be/H4XuDm6moUU Education Loans Instead of paying the full price of education up front, you can now take…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-11-22T22:34:35+00:00">22 Nov<i>22:34</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687768195" target="_blank" rel="noopener noreferrer">This Grand Life Alpha 2.0 - Education Loans, Factory and Engineering, and Transport Options <span aria-hidden="true">&#8599;</span></a><p>This update features the new education loans, the factory location and engineer career path, and new transport options. https://youtu.be/H4XuDm6moUU Education Loans Instead of paying the full price of education up front, you can now take…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2017-11-19T22:04:00+00:00">19 Nov<i>22:04</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2486412956113636166" target="_blank" rel="noopener noreferrer">Test branch updated <span aria-hidden="true">&#8599;</span></a><p>The test_public branch has been updated to Alpha 2.0. It contains education loans, a new Factory location with Engineering career path and new transport options. If no problems are reported in 3 days, I will release the update to everyone…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2017-11-19T22:04:00+00:00">19 Nov<i>22:04</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687768302" target="_blank" rel="noopener noreferrer">Test branch updated <span aria-hidden="true">&#8599;</span></a><p>The test_public branch has been updated to Alpha 2.0. It contains education loans, a new Factory location with Engineering career path and new transport options. If no problems are reported in 3 days, I will release the update to everyone…</p><small>PokingWaterGames</small></div></li><li class="tl-item"><time datetime="2017-11-16T00:49:37+00:00">16 Nov<i>00:49</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2143013295369614064" target="_blank" rel="noopener noreferrer">Alpha 1.91 Minor Update <span aria-hidden="true">&#8599;</span></a><p>A minor update has been released with the following changes: =Alpha 1.91= - Added speed up auction button - Add estimated value to property view - Moved starting money into xml files - Implemented personal tax deduction functionality…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-11-16T00:49:37+00:00">16 Nov<i>00:49</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687768416" target="_blank" rel="noopener noreferrer">Alpha 1.91 Minor Update <span aria-hidden="true">&#8599;</span></a><p>A minor update has been released with the following changes: =Alpha 1.91= - Added speed up auction button - Add estimated value to property view - Moved starting money into xml files - Implemented personal tax deduction functionality…</p><small>Patch notes</small></div></li><li class="tl-item"><time datetime="2017-11-08T22:42:29+00:00">8 Nov<i>22:42</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/2143012757608490418" target="_blank" rel="noopener noreferrer">Alpha 1.9 - Supervisors And More Business Types <span aria-hidden="true">&#8599;</span></a><p>Alpha 1.9 has been released with the new supervisor role for your freelance business and 3 new business types. https://www.youtube.com/watch?v=FU9jHsL2sC4 Your Business Supervisor Now you can promote one of your employees to supervisor. A…</p><small>PokingWaterGames</small></div></li><li class="tl-item is-patch"><time datetime="2017-11-08T22:42:29+00:00">8 Nov<i>22:42</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4249665521687768524" target="_blank" rel="noopener noreferrer">Alpha 1.9 - Supervisors And More Business Types <span aria-hidden="true">&#8599;</span></a><p>Alpha 1.9 has been released with the new supervisor role for your freelance business and 3 new business types. https://www.youtube.com/watch?v=FU9jHsL2sC4 Your Business Supervisor Now you can promote one of your employees to supervisor. A…</p><small>Patch notes</small></div></li></ol></div></section></div></div></div><input class="modal-toggle" type="checkbox" id="launch-open"><div class="modal"><label class="modal-back" for="launch-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Launch options"><label class="modal-x" for="launch-open" aria-label="Close">&times;</label><h2>Launch options</h2><p class="sub">What Steam runs, and with what. Straight from the app configuration.</p><table class="optable"><thead><tr><th>Description</th><th>Executable</th><th>Arguments</th><th>Platform</th><th></th></tr></thead><tbody><tr><td><span class="muted">Launch</span></td><td><code class="cb-exe">ThisGrandLife.exe</code></td><td></td><td>windows</td><td></td></tr></tbody></table></div></div><input class="modal-toggle" type="checkbox" id="saves-open"><div class="modal"><label class="modal-back" for="saves-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Cloud saves"><label class="modal-x" for="saves-open" aria-label="Close">&times;</label><h2>Cloud saves</h2><p class="sub">The folders Steam Cloud syncs. The root is a token Steam uses for a location on your own machine, not a path this page can know.</p><table class="optable"><thead><tr><th>Root</th><th>Folder</th><th>Files</th></tr></thead><tbody><tr><td><code class="cb-root">gameinstall</code></td><td><code class="cb-word">saves</code></td><td><code class="cb-str">*</code> <span class="muted">and below</span></td></tr><tr><td><code class="cb-root">gameinstall</code></td><td><code class="cb-word">playerScores</code></td><td><code class="cb-str">*</code> <span class="muted">and below</span></td></tr></tbody></table></div></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The page is dark, and says so before the stylesheet lands. Without this
+     the browser paints its own white ground first and every reader gets the
+     flash this meta exists to prevent -- including the ones whose system is
+     set to light, who will land on a dark page either way. -->
+<meta name="color-scheme" content="dark">
+<title>SIGNALIS · Game information</title>
+<!-- The site mark as the tab icon, inline rather than a file: a draft
+     opened from disk shows it too, and the publish step copies nothing
+     new. Built in chrome.py, which says why. -->
+<link rel="icon" href="data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'><style>.f{stroke:%230b62ab}.l{stroke:%23a8329b}%40media(prefers-color-scheme:dark){.f{stroke:%237cc5ff}.l{stroke:%23e08add}}</style><rect%20class='f'%20x='1.6'%20y='1.6'%20width='20.8'%20height='20.8'%20rx='5'%20fill='none'%20stroke-width='2.4'/><path%20class='l'%20d='M6%2015.5%20L10%209.5%20L13.5%2013.5%20L18%206.5'%20fill='none'%20stroke-width='3'%20stroke-linecap='round'%20stroke-linejoin='round'/></svg>">
+<style>/* STEAMDBnexus -- the game page.
+ *
+ * Lifted out of a Python string, where it lived while the design was being
+ * decided. It bit twice there: once a regex meant to remove a few unused
+ * colour tokens ate the entire dark palette, because CSS inside Python has to
+ * be edited as text rather than as CSS.
+ *
+ * Two rules hold across the whole sheet:
+ *
+ *   Content is not boxed. Controls are. A border says "this is a thing you act
+ *   on"; putting one round a paragraph of facts says nothing.
+ *
+ *   Every colour is a token, and there is one set of them. **The site is dark
+ *   and only dark.** It had a light palette too, chosen by the reader's system
+ *   setting, and that was thirty colours kept in step for a page nobody comes
+ *   to a games database wanting: a bright flash in a dark room.
+ *
+ *   So a colour is checked against one ground rather than two, which is easier
+ *   and not weaker -- the rule that a token with 2.4:1 somewhere is not
+ *   shippable still holds, there is simply only one somewhere now. Audit the
+ *   palette after changing it: every token used must be defined, and every
+ *   token defined must be used.
+ *
+ * See __memory/memory/page-design.md.
+ */
+
+:root {
+    color-scheme:dark;
+
+    /* grounds and lines */
+    --bg: #10151d;
+    --card: #18212d;
+    --card-2: #192431;
+    --line: #2a3747;
+    --rule: #41536a;
+    --hairline: #ffffff09;
+    --image-line: #35485a;
+
+    /* text */
+    --text: #e4ecf4;
+    --text-soft: #b9c8d7;
+    --text-quiet: #b5c9da;
+    --muted: #93a5b9;
+
+    /* the two accents */
+    --blue: #7cc5ff;
+    --magenta: #e08add;
+
+    /* the backdrop */
+    --art: .50;
+    --art-blur: 12px;
+
+    /* review score bands */
+    --sc-good: #80d8ad;
+    --sc-ok: #c3d97a;
+    --sc-mixed: #dfc598;
+    --sc-poor: #e8a66a;
+    --sc-bad: #ff8f8f;
+    --green: #80d8ad;
+    --meter-bg: #775752;
+
+    /* charts */
+    --avg: #7cc5ff;
+    --peak: #274966;
+    --grid: #212c39;
+
+    /* the three platform marks. Their own tokens rather than the accents:
+       blue on this site means "this link leaves the site", and a mark that
+       borrowed it would be making a promise it cannot keep. Against --bg:
+       9.13, 13.51 and 12.57 to one, where a non-text mark needs 3. */
+    --os-win: #4cc2ff;
+    --os-mac: #d7dee7;
+    --os-linux: #ffd05a;
+
+    /* the parts of a command line, inside the launch and cloud-save popups.
+       A flag, a quoted string and a bare word are three different things and
+       one colour makes them a wall. Against --bg: 9.76, 10.56 and 10.37 to
+       one, where body text needs 4.5. */
+    --cb-flag: #e8b55c;
+    --cb-str: #8fd4a2;
+    --cb-root: #7fd0d6;
+
+    /* odds and ends */
+    --deck: #dfc598;
+    --link-icon: #8098ad;
+}
+
+/* --------------------------------------- where a link goes, in colour */
+/* Site-wide, not the index's. page-design.md files this under "what holds on
+   every page", and the moment it lived only in the index's sheet the game
+   page's own link home used `.stay` with no rule behind it -- a blue link that
+   was supposed to be the unmarked one. The class audit caught it; the lesson is
+   that a shared class belongs in the shared sheet.
+
+   `a` is blue by default just below, and blue means "this leaves this site". A
+   link that STAYS drops the colour: the ordinary case is not marked, the
+   exceptions are. */
+.stay { color:var(--text) }
+.stay:hover { color:var(--text);text-decoration:underline }
+/* The arrow is the character itself, not a CSS unicode escape. The escape form
+   went through a Python string on the way into this file and came out as
+   control character 0x11 followed by "97": still valid CSS, invisible in a
+   diff, and a stray control byte in the stylesheet. A backslash followed by
+   digits is an octal escape in Python before it is ever a CSS one. The file is
+   UTF-8 -- write the glyph. */
+.leaves::after { content:"↗";font-size:.85em;margin-left:3px;
+                 color:var(--link-icon);vertical-align:baseline }
+
+/* ------------------------------------------------------------- the 404 */
+.oops { max-width:640px;padding:40px 0 80px }
+.oops h1 { margin:6px 0 20px }
+.oops .lede { font-size:16.5px;line-height:1.6;color:var(--text-soft) }
+.oops p { color:var(--text-soft) }
+.big { font-size:15px;font-weight:600 }
+
+/* -------------------------------------- the last thirty days, and neighbours */
+/* The one figure the reviews API cannot give: a lifetime percentage cannot say
+   whether a game is getting better or worse. It sits under the all-time score
+   and carries its OWN band colour, which is the point -- a game at 92% for life
+   and 41% this month should not show one colour for both. */
+.recent { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+/* The direct child only. The daily strip inside this block carries a <b> of
+   its own in every tooltip, and an unqualified rule here rendered those as
+   small muted upper case -- the same mistake `.rvhist b` made, in the same
+   week, for the same reason. */
+.recent > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+.recent .rw { display:block;font-size:13px;font-weight:600;margin-top:5px;
+              color:var(--score) }
+.recent .rn { display:block;font-size:11.5px;color:var(--muted);margin-top:2px }
+
+/* Review counts over time, directly under the meter that reports them for the
+   whole life of the game. A lifetime percentage cannot say whether a game was
+   always liked or was rescued; twenty-four bars can.
+
+   The bar's HEIGHT is that period's review count and the cap is the negative
+   part of it, so volume and mood are one shape rather than two charts. The
+   fills are the meter's own two colours on purpose: the reader has just read
+   that bar, and a chart under it in different colours would be a second
+   language to learn for the same fact.
+
+   Elements rather than SVG, and the tooltip is why. An SVG <title> is the
+   browser's own tooltip and waits about a second before it appears, which is
+   not a delay any stylesheet can shorten. This one is ours, so :hover shows
+   it at once. */
+.rvhist { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+/* The direct child only. The tooltip inside the chart carries a <b> of its
+   own, and an unqualified rule here made it small, muted and upper case. */
+.rvhist > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+/* Not scoped to `.rvhist`. The marked-periods block below uses the same note
+   and, scoped, it rendered there as full-size body text -- the third time in
+   this file a class has been styled in one place and used in two. */
+.rv-note { display:block;font-size:11.5px;color:var(--muted);margin-top:2px;
+           line-height:1.45 }
+
+/* The row is the plot. Each column is a full-height hover target with the bar
+   sitting at the bottom of it, because a bar two pixels tall is not something
+   anybody can point at -- and a period with no reviews has no bar at all. */
+.rv-bars { position:relative;display:flex;align-items:flex-end;gap:2px;
+           height:58px;margin:9px 0 4px }
+.rv-bar { flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end }
+.rv-up { display:block;width:100%;background:var(--score) }
+.rv-down { display:block;width:100%;background:var(--meter-bg) }
+
+/* Anchored to the row rather than to the column, so left:0;right:0 makes it
+   the width of the chart. Anchored to the column it would be ten pixels wide
+   and would hang off the side of the panel at both ends.
+
+   On `.rv-bars` rather than `.rvhist`, because both strips carry that class
+   and only the long one sits inside `.rvhist`. */
+.rv-bars em { position:absolute;left:0;right:0;bottom:calc(100% + 3px);
+             visibility:hidden;z-index:3;
+             background:var(--card);border:1px solid var(--line);
+             border-radius:7px;padding:6px 8px;
+             font-style:normal;font-size:11px;line-height:1.4;
+             color:var(--text);text-align:center;
+             box-shadow:0 3px 10px #00000026 }
+/* The period and its share on the first line, the counts beneath. */
+.rv-bars em b { display:block;font-weight:600;margin-bottom:1px }
+/* The share carries a band class of its own -- s-good, s-mixed and the rest --
+   which is the same five-step table the big number at the top of the panel
+   uses. Those classes only set --score; this is the rule that spends it.
+   Checked against --card in both themes: the worst of the ten is 5.29:1. */
+.rv-bars em span { color:var(--score) }
+/* No transition and no delay: the whole point of owning this element. */
+.rv-bar:hover em { visibility:visible }
+
+/* The newest period has not finished, so its bar is not a result yet. Faded
+   rather than hidden: dropping it would make the chart up to a month out of
+   date, and leaving it solid draws a fall that is only the calendar. The end
+   label says 'so far' for anyone not seeing colour. */
+.rv-part .rv-up { opacity:.45 }
+
+.rv-span { display:flex;justify-content:space-between;font-size:10px;
+           color:var(--muted);gap:10px }
+
+/* The stretches Steam marks on its own review graph. A block of its own, not
+   shading on the bars: the periods run from 3 days to 123 while a bar is a
+   whole month, so colouring September to mark eleven days of it would be a
+   claim about September.
+
+   Dates and a length, and nothing else. The payload carries a `type` that is
+   0 on every event held, with no label anywhere saying what 0 means -- so
+   naming these would be putting a word in Valve's mouth. */
+.marked { border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px }
+.marked > b { display:block;font-size:10.5px;text-transform:uppercase;
+              letter-spacing:.09em;color:var(--muted);font-weight:600 }
+/* One line a period, wrapping rather than overflowing. The column is 290px
+   and a `nowrap` row that cannot fit pushes its second half outside the card
+   -- which is what the first version did. */
+.mk-row { display:block;font-size:12px;color:var(--text-soft);padding:5px 0 }
+.mk-row:first-of-type { margin-top:7px }
+.mk-when { white-space:nowrap }
+.mk-len { color:var(--muted);font-size:11px;white-space:nowrap }
+/* The glyph itself, never the CSS escape `\00b7`. Written as an escape it
+   goes through a shell and a Python string on the way into this file and
+   arrives as a NUL byte followed by "b7" -- grep then calls the stylesheet a
+   binary file and the page shows a replacement character. The same note sits
+   beside `.leaves::after`, which was bitten first. This file is UTF-8. */
+.mk-len::before { content:" · ";color:var(--line) }
+
+/* The same thirty days as the summary above it, with a shape. Shorter than the
+   long chart on purpose: it is a detail under a figure, not a second headline.
+   Thirty bars in 250px is about six pixels each, and the numbers live in the
+   tooltip where there is room for them. */
+.rv-days { height:34px;margin:8px 0 3px }
+.recent .rv-span { margin-bottom:2px }
+
+/* Games Steam lists as similar, and only the ones this site holds a page for.
+   Every row is therefore an internal link with a real name, so none of them
+   wears the blue that means "this leaves the site". */
+.related { list-style:none;margin:0 0 12px;padding:0 }
+.related li { border-bottom:1px solid var(--hairline);padding:7px 0 }
+.related li:last-child { border-bottom:0 }
+.related a { font-size:12.5px;overflow-wrap:anywhere }
+
+/* ---------------------------------------------------------- the site bar */
+/* Shared by both kinds of page, which is the point: it is the one thing that
+   says these are the same site. The game page carries the brand and the link
+   home and nothing else -- the search belongs to the index, and so does the
+   Support panel, deliberately. A donation panel holds an email address, and an
+   email address on a page that promises no scripts is what makes Cloudflare
+   inject one at the edge. See __memory/memory/hosting.md. */
+/* Sticky, because the search goes with you down a long list. */
+/* Pulled out to the page's edges and padded back in, so its background covers
+   the full width rather than just the text column.
+   
+   Without that, anything sitting left of the column slid under the bar and out
+   the side of it while scrolling. `.ours` does exactly that: it hangs its
+   magenta marker 11px into the left padding so the names still line up, which
+   is right for the row and was visible against a bar that stopped short. */
+.topbar { position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;
+          padding:14px var(--pad);margin:0 calc(var(--pad) * -1) 34px;
+          background:var(--bg);
+          border-bottom:1px solid var(--rule) }
+.brand { display:flex;align-items:center;gap:9px;font-size:16px;letter-spacing:-.02em;
+         white-space:nowrap;flex:0 0 auto }
+.brand span { font-weight:400;color:var(--text-soft) }
+.brand b { font-weight:700;color:var(--text) }
+.brand:hover { text-decoration:none }
+.logo { width:26px;height:26px;flex:0 0 auto;display:block }
+
+
+/* The game page's bar: same brand, none of the index's machinery.
+   It undoes three things `.topbar` needs and it does not.
+
+   **No background.** The index bar is sticky, so it has to paint over whatever
+   scrolls under it. The game page has the game's own art fading down the page
+   behind everything, and an opaque strip across the top of that reads as a
+   block sitting on the picture rather than as part of it.
+
+   **Not sticky, and no rule under it.** With the background gone, a sticky bar
+   would have the page's text sliding through the wordmark. A game page is read
+   top to bottom and the way out does not need to follow the reader down. */
+.sitebar { position:static;background:none;border-bottom:0;
+           padding:0;margin-bottom:26px }
+
+* { box-sizing:border-box }
+html { scroll-behavior:smooth;scroll-padding-top:30px }
+body { margin:0;background:var(--bg);color:var(--text);font:14px/1.6 system-ui,Segoe UI,sans-serif }
+a { color:var(--blue);text-decoration:none }
+a:hover { text-decoration:underline }
+a:focus-visible,summary:focus-visible { outline:2px solid var(--blue);outline-offset:4px }
+img { max-width:100%;height:auto }
+h1 { font-size:clamp(27px,3vw,42px);line-height:1.15;letter-spacing:-.035em;margin:10px 0 16px;font-weight:650 }
+h3 { font-size:15px;font-weight:600;margin:0 0 17px }
+p { margin:0 0 15px }
+/* **Two widths, because the two pages are not the same shape.** This one is
+   the game page and the 404. The index takes `.wrap.index` in `index.css` and
+   is wider.
+
+   1300, up a little from the 1250 it sat at all along. A game page is mostly
+   prose and its columns cap themselves -- `.description` at 760,
+   `.about-copy` at 820 -- so width past a point is not room, it is a wider
+   empty margin beside a paragraph that will not use it. Worked out at 1650,
+   which this briefly was on 2026-09-12: the hero's text column came to 1154px
+   holding a 760px description, leaving 394px of nothing at all.
+
+   The index is the other case, and it was the one the widening was asked for:
+   two ten-row tables side by side and a six-card news row, all scanned rather
+   than read, all using every pixel given to them. */
+/* `--pad` so the sticky bar can mirror it. The bar has to paint the full width
+   of the page, and the page's side padding is the only number that says what
+   that is -- written twice it drifts, and the bar's background stops one
+   breakpoint short. */
+.wrap { --pad:28px;max-width:1300px;margin:auto;padding:56px var(--pad) 45px }
+/* The text leads and the cover follows. The other way round gave the title a narrow column beside a 460px picture, which is what made it read as cramped next to the first draft of this page. */
+.hero { display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:40px;align-items:start;margin-bottom:30px }
+.hero-text { min-width:0 }
+.eyebrow { text-transform:uppercase;letter-spacing:.13em;font-size:11px;font-weight:700;color:var(--blue);margin:0 0 14px }
+/* Four across over a hairline, the way a dashboard states its headline numbers. A rule rather than a card each, so they read as one row. */
+.hero-stats { display:grid;grid-template-columns:repeat(4,1fr);gap:24px;border-top:1px solid var(--rule);padding-top:22px;margin:0 0 30px }
+.hero-stats .stat { background:none;border:0;padding:0 }
+.hero-stats .stat b { display:block;font-size:29px;font-weight:600;letter-spacing:-.03em;line-height:1.15;color:var(--text) }
+.hero-stats .stat span { display:block;color:var(--muted);font-size:11px;margin-top:4px }
+.news-launch-row { display:flex;justify-content:flex-end;align-items:flex-end;
+                   border-bottom:1px solid var(--rule);margin:0 }
+.news-launch-row+.hero-stats { border-top:0 }
+.news-launch { display:flex;align-items:baseline;gap:12px;margin-bottom:-1px;
+               padding:9px 13px 8px;background:var(--bg);border:1px solid var(--rule);
+               border-top:2px solid var(--magenta);border-bottom-color:var(--bg);
+               border-radius:6px 6px 0 0;cursor:pointer }
+.news-launch:hover { border-top-color:var(--text);color:var(--text) }
+.news-launch b { color:var(--magenta);font-size:11px;letter-spacing:.07em;
+                 text-transform:uppercase }
+.news-launch span { color:var(--muted);font-size:10.5px }
+.header-image { width:100%;display:block;border-radius:10px;border:1px solid var(--image-line);aspect-ratio:460/215;object-fit:cover }
+.description { font-size:16.5px;line-height:1.6;color:var(--text-soft);max-width:760px }
+/* Under the artwork now, in a 340px column rather than beside a wide paragraph,
+   so it wraps onto a second row instead of running off the end. */
+.hero-meta { display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-top:12px }
+/* `--muted` for the outline, not `--line`. Measured against the page ground:
+   --line is 1.24:1 in light and 1.51:1 in dark, and a border needs about 3:1 to
+   read as a border at all -- so these chips had an edge nobody could see.
+   --rule is no better at 1.63 and 2.33. --muted is 5.0 and 6.8, which at one
+   pixel is a clear thin line rather than a heavy one. */
+.hero-meta span { border:1px solid var(--muted);border-radius:5px;
+                  padding:3px 10px;color:var(--text-soft) }
+.layout { display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:24px }
+.panel { padding:0 0 26px;margin:0 0 26px;min-width:0;border-bottom:1px solid var(--rule) }
+aside .panel:last-child { border-bottom:0;margin-bottom:0 }
+/* The main column stops being a stack of boxes. A card is a thing you can pick up and move; these are sections of one document, and a rule between them with room either side says that better than a border all the way round each one. The sidebar keeps its cards, because those really are separate widgets. */
+.layout>main>.panel { padding:38px 0;margin:0;border-bottom:1px solid var(--rule) }
+.layout>main>.panel:first-child { padding-top:4px }
+.layout>main>.fold:first-of-type { margin-top:30px }
+/* A section heading, not a card label. */
+.layout>main>.panel>h3,.information-heading h3 { font-size:20px;font-weight:600;letter-spacing:-.015em;margin:0 0 4px }
+.information-heading { margin-bottom:22px;align-items:flex-start }
+.layout>main>.panel>h3+* { margin-top:18px }
+dl { margin:0 }
+/* The two buttons under the information table. They open a list a row could
+   not hold: app 252490 ships six launch entries, and a row reading "six of
+   them" says nothing. `.go` is the same button the charts opener uses. */
+.info-more { display:flex;flex-wrap:wrap;gap:18px;margin-top:18px }
+/* `.go` had a rule only inside `.charts-open`, so these two opened a dialog
+   with a text cursor and no colour -- the exact fault the note beside the
+   modal styles warns about. A <label> gets no hand from the browser.
+   Magenta because that is this site's word for "opens something here without
+   leaving"; blue would promise a page the reader never gets. */
+.info-more .go { cursor:pointer;color:var(--magenta);font-size:13px;
+                 white-space:nowrap;user-select:none }
+.info-more .go:hover { text-decoration:underline }
+
+/* The table inside those popups. Fixed-width figures for the paths and the
+   arguments, because they are things somebody may copy and a proportional
+   font makes an l and a 1 the same shape. */
+.optable { width:100%;border-collapse:collapse;font-size:12.5px }
+.optable th { text-align:left;font-weight:600;font-size:10.5px;
+              text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+              border-bottom:1px solid var(--rule);padding:0 14px 8px 0 }
+.optable td { border-bottom:1px solid var(--hairline);padding:9px 14px 9px 0;
+              vertical-align:top;color:var(--text-soft) }
+.optable tr:last-child td { border-bottom:0 }
+/* The DLC table only. Three platform marks in a table cell are a
+   column and not a sentence, so the 16px gap that separates them in
+   the Platforms row of the information table is too much here. The
+   date never wraps: '24 Sep 2026' broken over two lines is unreadable
+   and the column is narrow enough that it would. Scoped through the
+   toggle's own id, because `table_popup` gives every dialog the same
+   markup and this must not reach the launch or saves tables. */
+#dlc-open + .modal .plat { margin-right:10px }
+#dlc-open + .modal .optable td:last-child { white-space:nowrap }
+.optable code { font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+                color:var(--text);word-break:break-all }
+.cb-exe { color:var(--text);font-weight:600 }
+.cb-flag { color:var(--cb-flag) }
+.cb-str { color:var(--cb-str) }
+.cb-word { color:var(--text-soft) }
+.cb-root { color:var(--cb-root) }
+.tagline-chip { display:inline-block;font-size:10.5px;padding:2px 7px;
+                border:1px solid var(--line);border-radius:20px;
+                color:var(--muted);white-space:nowrap;margin-right:5px }
+
+/* The build id beside the update date. Present because it is the thing that
+   actually changed and somebody may want to quote it, quiet because the date
+   is what almost everybody came for. */
+.quiet { color:var(--muted);font-size:.88em }
+
+/* Each platform behind its own mark. Inline-flex so the icon and the word are
+   one thing that wraps together, rather than a picture that can end a line
+   with its label on the next one. */
+.plat { display:inline-flex;align-items:center;gap:6px;margin-right:16px;
+        white-space:nowrap }
+.plat:last-child { margin-right:0 }
+.plat svg { width:14px;height:14px;flex:0 0 auto }
+/* `fill="currentColor"` in the markup, so setting `color` here paints it. The
+   eyes and beak of the penguin stay `--bg` and are cut out of whatever colour
+   the body takes. */
+.plat-windows svg { color:var(--os-win) }
+.plat-mac svg { color:var(--os-mac) }
+.plat-linux svg { color:var(--os-linux) }
+
+.fact { display:grid;grid-template-columns:minmax(150px,22%) minmax(0,1fr);gap:24px;border-bottom:1px solid var(--hairline);padding:11px 0 }
+.fact:last-child { border-bottom:0 }
+dt { color:var(--muted);font-size:12.5px }
+dd { margin:0;overflow-wrap:anywhere;min-height:20px;font-size:14px }
+/* A rule on the left and nothing else. A border, a radius and a fill were three separate ways of saying 'these are separate', which is what made them read as older than the rest of the page. One rule does it, and twenty of them stay a list instead of becoming a wall of buttons. */
+.tags { display:flex;flex-wrap:wrap;gap:8px 18px }
+.tags span { padding:1px 0 1px 10px;border-left:2px solid var(--blue);color:var(--text-soft);font-size:12.5px }
+.feature-section { margin-bottom:22px }
+.feature-section:last-child { margin-bottom:0 }
+.feature-section h3 { font-size:12px;color:var(--muted);font-weight:500;margin-bottom:10px }
+.muted { color:var(--muted);font-size:12px }
+aside .panel>h3 { font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin:0 0 14px }
+/* The reviews heading takes the score's colour, the same as the bar over it, so the whole block says one thing. */
+.reviews>h3 { color:var(--score) }
+aside .fact { grid-template-columns:1fr 1fr;gap:10px;font-size:12px }
+aside dd { text-align:right }
+/* One variable, set by the band class, drives the bar, the number, the word and the meter -- so they can never disagree about how the game is doing. */
+.reviews { border-top:2px solid var(--score);padding-top:15px }
+.s-good { --score:var(--sc-good) }
+.s-ok { --score:var(--sc-ok) }
+.s-mixed { --score:var(--sc-mixed) }
+.s-poor { --score:var(--sc-poor) }
+.s-bad { --score:var(--sc-bad) }
+.s-none { --score:var(--muted) }
+.review-score { color:var(--score);font-size:43px;line-height:1.2;letter-spacing:-.045em }
+.review-score span { font-size:24px }
+.positive { display:block;color:var(--score);font-size:13px;margin:5px 0 }
+.meter { height:5px;border-radius:5px;background:var(--meter-bg);overflow:hidden;margin:20px 0 8px }
+.meter i { display:block;height:100%;background:var(--score) }
+.split { display:flex;justify-content:space-between;font-size:10px;color:var(--muted);gap:10px }
+.activity { font-size:32px;letter-spacing:-.03em }
+.deck-status { font-size:20px;margin-bottom:10px;color:var(--deck) }
+.link-list { list-style:none;margin:0;padding:0 }
+.link-list li { margin:9px 0;font-size:13px }
+.fold { border:0;border-top:1px solid var(--rule);border-radius:0;margin:0;background:none }
+.fold:last-of-type { border-bottom:1px solid var(--rule) }
+.fold>summary { cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px 2px;list-style:none }
+.fold>summary::-webkit-details-marker { display:none }
+.fold summary b { display:block;font-size:14px;font-weight:550 }
+.fold summary small { display:block;color:var(--muted);font-size:11px;margin-top:3px }
+.plus { font-size:23px;color:var(--blue);font-weight:300 }
+.fold[open] .plus { transform:rotate(45deg) }
+.fold[open]>summary { border-bottom:0 }
+.fold-body { padding:0 2px 26px;min-width:0 }
+.about-fold>summary { background:var(--card-2);border-radius:6px;padding:21px 16px }
+.about-fold>summary span:first-child b { font-size:16px }
+.about-fold[open] { background:var(--card-2);border-radius:6px;border-top-color:transparent }
+.about-fold[open]>summary { margin-bottom:0;border-bottom:1px solid var(--hairline) }
+.about-fold>.fold-body { padding:20px 16px 24px }
+.about-copy { max-width:820px;color:var(--text-soft);font-size:14px;
+              line-height:1.72;white-space:pre-line;overflow-wrap:anywhere }
+.two { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px }
+.two .panel { padding:0 0 0 16px;margin:0;background:none;border:0;border-left:2px solid var(--line) }
+.requirements { white-space:pre-line;font-size:12px;color:var(--text-soft);overflow-wrap:anywhere }
+.content-notice { margin:0 0 26px }
+.content-notice h3,.rating-list h3 { color:var(--muted);font-size:11px;
+                                    font-weight:600;letter-spacing:.08em;
+                                    text-transform:uppercase;margin:0 0 12px }
+.content-notice p { color:var(--text-soft);margin:0;max-width:760px }
+.rating-row { display:grid;grid-template-columns:130px 90px minmax(0,1fr);
+              gap:18px;border-bottom:1px solid var(--hairline);padding:10px 0 }
+.rating-row:last-child { border-bottom:0 }
+.rating-row b { font-size:11px;letter-spacing:.06em;color:var(--text-soft) }
+.rating-row span { font-weight:600;color:var(--text);text-transform:uppercase }
+.rating-row small { color:var(--muted);font-size:11.5px;overflow-wrap:anywhere }
+.languages { width:100%;border-collapse:collapse;font-size:12px }
+.languages th,.languages td { text-align:left;padding:8px 0;border-bottom:1px solid var(--line) }
+.languages th { color:var(--muted);font-weight:400 }
+.languages td:last-child { color:var(--green) }
+.languages+p { margin-top:15px }
+.gallery { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:22px }
+.gallery img { width:100%;display:block;aspect-ratio:16/9;object-fit:cover;border-radius:6px }
+.trailer p { font-size:12px;margin:8px 0 4px }
+.trailer a { font-size:11px }
+.achievement-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:20px 0 }
+.achievement { display:flex;align-items:center;gap:12px }
+.achievement img { width:48px;height:48px;border-radius:5px }
+.achievement b { font-size:12px }
+.achievement small { display:block;color:var(--muted);font-size:10px }
+.spoilers { margin:18px 0 }
+.spoilers summary { cursor:pointer;color:var(--blue);font-size:12px }
+/* ---------------------------------------- the announcement timeline
+ *
+ * Fifty announcements in one scroll is a scroll, not a history. So they are
+ * cut into years, the years into months, and one year is on screen at a time.
+ *
+ * **The year filter is a radio group and nothing else.** No page here runs a
+ * script, so the choice is `:checked` plus a sibling combinator: an input per
+ * year, a label per year, and one rule below per slot. That fixed list is why
+ * `model/news.MAX_YEARS` is 16 -- the sheet has to know how many slots exist
+ * before it knows which game it is drawing.
+ *
+ * The tabs are magenta because on this site magenta means "this opens in
+ * place": the year does not leave the page, it swaps what the page shows. Blue
+ * is for links that leave, and every announcement title is one.
+ */
+.tl-box { width:min(880px,94vw) }
+.tl-pick { position:absolute;width:1px;height:1px;opacity:0;pointer-events:none }
+
+/* Above the scrolling half rather than sticky inside it. The whole point of
+   the tabs is to change year, and a reader forty posts down a 2024 list should
+   not have to scroll back up to leave it -- sticky did that much, but the
+   heading and the "50 announcements, Jun 2024 to Sep 2026" line scrolled away
+   regardless, and those say what the tabs are tabs *of*. `.modal-tall` on the
+   box keeps all three. */
+.tl-tabs { display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px;
+           border-bottom:1px solid var(--rule);padding-bottom:0;
+           background:var(--bg) }
+.tl-tabs label { cursor:pointer;display:flex;align-items:baseline;gap:7px;
+                 padding:7px 13px 8px;margin-bottom:-1px;font-size:13px;
+                 font-weight:550;color:var(--muted);
+                 border-bottom:2px solid transparent }
+.tl-tabs label:hover { color:var(--text) }
+/* The count beside the year. Tabular figures so 4 and 20 line up, and a
+   smaller size so the year stays the thing being read. */
+.tl-tabs label b { font-weight:400;font-size:10.5px;color:var(--muted);
+                   font-variant-numeric:tabular-nums }
+/* Focus is drawn on the label, because the input it belongs to is 1px and
+   invisible -- without this the year tabs are keyboard-reachable and give no
+   sign of where you are. */
+.tl-pick:focus-visible+.tl-tabs label,
+.tl-tabs label:focus-within { outline:2px solid var(--magenta);outline-offset:-2px }
+
+/* Hidden by default; the rule that reveals the chosen year is written per
+   page by `build/page.news_timeline` and lands in the page's own <style>,
+   beside the ones `build/charts.py` writes for its month tabs. A game with
+   three years emits three rules.
+
+   It was sixteen fixed slots here until 2026-09-11. Sixteen was set against a
+   measured oldest announcement of August 2012 and the oldest actually held is
+   May 2010, so the cap was already one year short on the games with the
+   longest histories -- which are the only games a year filter is for. The
+   generated form has no number to get wrong. */
+.tl-year { display:none }
+
+/* The month band. The heading sits in the left column, above the rail, so a
+   reader scanning downwards meets the month before the posts in it. */
+.tl-month { display:grid;grid-template-columns:112px minmax(0,1fr);
+            column-gap:0;padding-top:18px }
+.tl-month+.tl-month { border-top:1px solid var(--line) }
+.tl-month h3 { grid-column:1;font-size:11px;font-weight:600;
+               letter-spacing:.09em;text-transform:uppercase;
+               color:var(--text-quiet);margin:2px 0 0;
+               /* `top:0`, not 44: the tabs are out of the scroller now, so the
+                  top of the scroller is where this should stop. */
+               position:sticky;top:0;background:var(--bg);
+               padding:2px 0 6px }
+.tl-list { grid-column:2;list-style:none;margin:0;padding:0 0 4px }
+
+/* The rail itself: one border down the left of the list, and each post's node
+   drawn on it. */
+.tl-item { position:relative;padding:0 0 18px 22px;
+           border-left:1px solid var(--line) }
+.tl-item:last-child { border-left-color:transparent;padding-bottom:6px }
+.tl-item:last-child:before { box-shadow:0 0 0 4px var(--bg) }
+/* Hollow for an announcement, filled for a patch note. A **shape**, not a
+   colour: blue, magenta and the three platform marks each already mean
+   something exact on this page, and this list does not need a sixth. */
+/* `--muted` and not `--rule`. The node says which posts are patch notes, so
+   it is a mark that carries meaning and owes 3:1 against the ground -- and
+   --rule measures 2.33:1 there, which is a line colour doing a mark's job. */
+.tl-item:before { content:"";position:absolute;left:-4.5px;top:4px;
+                  width:8px;height:8px;border-radius:50%;
+                  background:var(--bg);border:1.5px solid var(--muted) }
+.tl-item.is-patch:before { background:var(--text-quiet);
+                           border-color:var(--text-quiet) }
+.tl-item time { display:block;font-size:10.5px;color:var(--muted);
+                font-variant-numeric:tabular-nums;margin-bottom:3px }
+/* The clock is text, so it takes a text colour: --rule is 2.33:1 on --bg and
+   body text owes 4.5. It is set apart by a separator instead. */
+.tl-item time i { font-style:normal;color:var(--muted) }
+.tl-item time i:before { content:"·";margin:0 6px }
+.tl-copy a { font-size:13px;font-weight:550 }
+.tl-copy p { display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+             overflow:hidden;color:var(--text-soft);font-size:12.5px;
+             line-height:1.55;margin:5px 0 0;max-width:700px }
+.tl-copy small { display:block;font-size:9.5px;color:var(--muted);margin-top:5px;
+                 letter-spacing:.08em;text-transform:uppercase }
+
+@media(max-width:640px) {
+    /* The month label goes back above its posts rather than beside them:
+       112px of left column out of a 340px screen is most of the screen. */
+    .tl-month { grid-template-columns:minmax(0,1fr) }
+    .tl-month h3 { grid-column:1;margin-bottom:12px;position:static }
+    .tl-list { grid-column:1 }
+}
+.fold-body>dl+p { margin-top:15px }
+@media(max-width:1050px) {
+    .hero { grid-template-columns:minmax(0,1fr) 260px;gap:25px }
+    .hero-stats { gap:16px }
+    .hero-stats .stat b { font-size:24px }
+    .layout { grid-template-columns:minmax(0,1fr) 265px }
+    .fact { grid-template-columns:125px minmax(0,1fr);gap:10px }
+    .panel { padding:18px }
+    .fold-body { padding:18px }
+}
+@media(max-width:760px) {
+    .wrap { --pad:16px;padding:30px var(--pad) }
+    .hero,.layout { grid-template-columns:1fr }
+    .hero-media { max-width:420px }
+    .hero-stats { grid-template-columns:repeat(2,1fr);gap:18px }
+    .hero { gap:22px }
+    .header-image { max-width:600px }
+    .hero h1 { font-size:31px }
+    aside { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start }
+    aside .panel { margin-bottom:0 }
+    .two { grid-template-columns:1fr }
+    .fact { grid-template-columns:125px minmax(0,1fr) }
+}
+@media(max-width:420px) {
+    aside,.gallery,.achievement-grid { grid-template-columns:1fr }
+    .fact { grid-template-columns:105px minmax(0,1fr) }
+    .rating-row { grid-template-columns:75px 55px minmax(0,1fr);gap:10px }
+}
+.hero-media { min-width:0 }
+.header-links { margin:0 0 34px;padding-top:26px;border-top:1px solid var(--rule);overflow-x:auto }
+.header-links-grid { display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:26px }
+/* The same treatment as Show charts, in blue: a bar above and nothing around it. Blue rather than magenta because these leave for Steam, and magenta on this page means the charts. */
+.game-link { display:flex;align-items:center;gap:9px;padding:13px 0 0;background:none;border:0;border-top:2px solid var(--blue);border-radius:0;color:var(--text-soft);font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;transition:color .15s,border-color .15s }
+.game-link svg { width:17px;height:17px;flex:none;color:var(--muted);transition:color .15s }
+.game-link .outbound { margin-left:auto;color:var(--link-icon);width:14px;height:14px;flex:none }
+.game-link:hover { color:var(--text);text-decoration:none }
+.game-link:hover svg { color:var(--text) }
+.game-link:focus-visible { outline:2px solid var(--blue);outline-offset:3px }
+@media(max-width:420px) {
+    .game-link { padding:11px 0 0;gap:7px;font-size:10.5px;letter-spacing:.05em }
+    .game-link svg { width:18px;height:18px }
+}
+.information-heading { display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:17px;flex-wrap:wrap }
+.information-heading h3 { margin:0 }
+.free-tag { border:1px solid var(--green);border-radius:5px;padding:3px 10px;
+            color:var(--green);font-size:12px;font-weight:600;line-height:1.35 }
+.updated-at { margin-left:auto;text-align:right;font-size:11px;color:var(--muted) }
+.updated-at b { font-weight:500;color:var(--text-quiet) }
+/* ------------------------------------------- the page backdrop */ /* Absolute, not fixed: it belongs to the top of the page and should scroll away with the header it sits behind, rather than following the reader down a page of tables. */ body { position:relative;min-height:100vh }
+.pagetop { position:absolute;top:0;left:0;right:0;height:640px;overflow:hidden; pointer-events:none;z-index:0 }
+/* Blurred, so what carries over is the colour and the mood rather than somebody's face behind the release date. scale() is not decoration: a blur samples past the element's edges and leaves them soft and see-through, so the picture is grown until those edges fall outside the box that clips it. */ .pagetop-art { width:100%;height:100%;object-fit:cover;object-position:50% 22%; opacity:var(--art);filter:blur(var(--art-blur));transform:scale(1.12) }
+/* Two fades, not one. Down, so the art dissolves into the page rather than stopping at a line; and across from the right, because the cover sits in the left 460px and the title and description sit in the rest -- so the settled ground goes under the words, not under the picture. */ .pagetop:after { content:"";position:absolute;inset:0;background: linear-gradient(180deg,transparent 0%,transparent 20%,var(--bg) 94%), linear-gradient(90deg,var(--bg) 0%,transparent 62%) }
+.wrap { position:relative;z-index:1 }
+/* --------------------------------------------- the charts button */
+/* A bar above and nothing around it. Magenta because that is the one colour
+   this site spends on "opens something here rather than taking you away", and
+   this is the one control on the page that does it.
+ *
+ * It sat in the sidebar and now sits under the cover image, which is why the
+ * margins changed sides: it used to need clearance below it from the panels
+ * that followed, and now needs clearance above it from the artwork instead. */
+.charts-open { display:grid;grid-template-columns:minmax(190px,1fr) auto;
+               align-items:start;gap:40px;padding:14px 0 0;margin:20px 0 0;
+               border-top:2px solid var(--magenta) }
+.charts-open-copy>b { display:block;font-size:13px;letter-spacing:.09em;
+                      text-transform:uppercase;color:var(--magenta) }
+/* Allowed to run to a second line. In the sidebar this was one squeezed line
+   under a 340px image; in the wide column it has room to say the whole span. */
+.charts-open-copy>span { display:block;font-size:11.5px;line-height:1.45;
+                         color:var(--muted);margin-top:4px }
+/* The block is not a link. Only the line that says it goes somewhere does, the same as the reviews block above it -- a card-sized click target with no border round it gives no clue where it starts. */ .charts-open .go { display:block;color:var(--blue);font-size:13px; margin-top:11px;cursor:pointer }
+.charts-open .go:hover { text-decoration:underline }
+.charts-recent { min-width:330px;display:grid;
+                 grid-template-columns:repeat(3,minmax(78px,1fr));gap:5px 24px;
+                 border-left:1px solid var(--hairline);padding-left:28px }
+.charts-recent-title { grid-column:1/-1;color:var(--muted);font-size:10px;
+                       font-weight:600;letter-spacing:.09em;text-transform:uppercase }
+.charts-metric b { display:block;color:var(--text);font-size:18px;font-weight:600;
+                   letter-spacing:-.02em;line-height:1.25;white-space:nowrap }
+.charts-metric b.up { color:var(--green) }
+.charts-metric b.down { color:var(--sc-bad) }
+.charts-metric small { display:block;color:var(--muted);font-size:10.5px;
+                       margin-top:2px }
+@media(max-width:1050px) {
+    .charts-open { grid-template-columns:1fr;gap:18px }
+    .charts-recent { max-width:380px;border-left:0;border-top:1px solid var(--hairline);
+                     padding:14px 0 0 }
+}
+/* ---------------------------------------------------- the dialog */
+/* A hidden checkbox and three labels, and no script -- the same trick the month
+   switcher and the catalogue's reveal already use.
+ *
+ * It was `:target` first, which is simpler to write and put a fragment in the
+ * address bar for the whole visit: `#charts` while open, and `#top` left behind
+ * after closing, because closing a `:target` dialog means navigating to some
+ * other fragment. There is no version of `:target` that does not do this --
+ * the fragment IS the mechanism.
+ *
+ * What the trade cost, and it is a real cost: sending somebody
+ * `/game/730#charts` no longer opens the charts for them, and the back button
+ * no longer closes the dialog -- it leaves the page. The month switcher gave up
+ * shareable per-month links for the same reason and it was worth it there too.
+ *
+ * The backdrop is a label as well, so clicking anywhere beside the box closes
+ * it. */
+/* **Every label that acts as a control needs `cursor:pointer` written down.**
+   An `<a href>` gets the hand from the browser's own stylesheet; a `<label>`
+   does not. When the dialogs stopped being `:target` these all changed from
+   anchors to labels, and each one silently lost the hand: `.go`, `.support-open`
+   and `.modal-x`. Whatever else a control loses when it changes element, check
+   the cursor -- it is the only one of these a reader notices before clicking. */
+
+/* Pinned to the viewport, and that is the whole point of `fixed` here rather
+   than `absolute`.
+ *
+ * Clicking a `<label>` focuses the control it points at, and a browser scrolls
+ * whatever it focuses into view. This checkbox sits at the *end* of the
+ * document, beside the dialog it controls, because the rule below needs them
+ * adjacent -- so clicking Support in the header threw the page to the bottom
+ * before the dialog even appeared.
+ *
+ * Fixed at the top-left means it is always already in view, so scrolling it
+ * into view moves nothing. It stays 1px and transparent, and stays focusable,
+ * so a keyboard user can still reach and toggle it.
+ *
+ * `.mpick` and `.more` have the same absolute positioning and no such problem:
+ * each of those sits next to its own label, so the scroll is to where the
+ * reader already is. Distance was the bug, not the technique. */
+.modal-toggle { position:fixed;top:0;left:0;width:1px;height:1px;
+                opacity:0;pointer-events:none }
+.modal { position:fixed;inset:0;z-index:60;display:none }
+.modal-toggle:checked+.modal { display:block }
+/* `default`, deliberately, and it is the one label here that keeps it. Clicking
+   the backdrop does close the dialog, so a hand would not be a lie -- but this
+   covers the whole viewport, and a hand across all of it reads as "everything
+   you can see is clickable" rather than as one control. */
+.modal-back { position:absolute;inset:0;background:#0009;display:block;cursor:default }
+.modal-box { position:relative;margin:3vh auto;width:min(1040px,94vw); max-height:94vh;overflow-y:auto;background:var(--bg);border:1px solid var(--line); border-radius:11px;padding:24px 26px 32px;box-shadow:0 24px 60px #0007 }
+.modal-x { cursor:pointer;position:absolute;top:14px;right:16px;width:32px;height:32px; display:flex;align-items:center;justify-content:center;font-size:21px; line-height:1;color:var(--muted);background:var(--card); border:1px solid var(--line);border-radius:7px;text-decoration:none;z-index:2 }
+.modal-x:hover { color:var(--text);border-color:var(--avg);text-decoration:none }
+/* ---------------------------------- a dialog whose head stays put
+ *
+ * `.modal-box` is normally the scroller, which carries the title, the subtitle
+ * and anything under them off the top of the screen. That is fine for a dialog
+ * you read down once. It is wrong for a long list: scroll a hundred rows or
+ * fifty announcements and you are looking at numbers and dates with nothing
+ * left on screen saying what they are.
+ *
+ * So the box becomes a column -- a head that stays, a body that moves -- and
+ * whatever is given `.modal-scroll` takes the scrolling.
+ *
+ * **`min-height:0` is the load-bearing line.** A flex item's automatic minimum
+ * is its own content, so without it the body refuses to shrink, the box grows
+ * past its `max-height`, and the page scrolls instead of the list. It looks
+ * like the rule did nothing.
+ *
+ * Used by the full ranking on the index and by the announcement timeline on a
+ * game page. It lives here rather than in either sheet because both load this
+ * one, and because the trap above is worth writing down once. */
+.modal-tall { display:flex;flex-direction:column;overflow:hidden }
+.modal-scroll { flex:1 1 auto;min-height:0;overflow-y:auto }
+.modal-box h2 { font-size:19px;font-weight:600;margin:0 0 3px;padding-right:44px }
+/* ------------------------------------------- what the charts draw */ .sub { color:var(--muted);font-size:12.5px;margin:0 0 22px }
+.why { color:var(--muted);font-size:12px;margin:0 0 14px }
+.pane .why,.panel .why { min-height:3.2em }
+.stats { display:grid;grid-template-columns:repeat(4,1fr);gap:24px;border-top:1px solid var(--line);padding-top:20px;margin:0 0 26px }
+.stat { padding:0 }
+.stat b { display:block;font-size:24px;font-weight:600;letter-spacing:-.03em;line-height:1.2 }
+.stat span { display:block;color:var(--muted);font-size:11px;margin-top:2px }
+.modal-box h2+.sub { margin-bottom:20px }
+.modal-box .panel h2 { font-size:13px;margin:0 0 3px }
+svg { display:block;width:100%;height:auto }
+
+/* ------------------------------------------ pointing at a line chart
+ *
+ * The figures used to sit in an SVG `<title>`, which is the browser's own
+ * tooltip: it waits about a second and no stylesheet can shorten that. The
+ * review bars gave that up months ago for the same reason; this is the same
+ * fix on a chart that could not simply be made of bars.
+ *
+ * A bar is its own target. A curve's points are three-pixel dots at arbitrary
+ * coordinates, so `charts.hover_cells` builds the targets: one full-height
+ * column per point, reaching halfway to each neighbour, sitting over the
+ * drawing and showing its own tooltip at once.
+ *
+ * The columns are positioned in **percentages** by the builder, because the
+ * `<svg>` above is `width:100%` and scales with its column -- a pixel offset
+ * would line up at exactly one window width.
+ */
+.plot { position:relative }
+.hovers { position:absolute;inset:0;display:block }
+/* Full height, so the reader aims at a column rather than at a dot. No
+   background until hovered: the chart is the picture, this is only the
+   pointing. */
+.hv { position:absolute;top:0;bottom:0;display:block;cursor:default }
+.hv:hover { background:#ffffff0a }
+
+/* Anchored to the plot, not to the column -- the same reasoning as the review
+   bars. A tooltip inside a four-pixel column would be four pixels wide, and at
+   either end of the chart it would hang off the panel. Centred on the pointer's
+   column by `left:50%` and pulled back half its own width. */
+.hv em { position:absolute;bottom:calc(100% - 34px);left:50%;
+         transform:translateX(-50%);
+         visibility:hidden;z-index:4;white-space:nowrap;
+         background:var(--card);border:1px solid var(--line);
+         border-radius:7px;padding:6px 9px;
+         font-style:normal;font-size:11px;line-height:1.4;
+         color:var(--text);text-align:center;
+         box-shadow:0 3px 10px #00000026 }
+.hv em b { display:block;font-weight:600;margin-bottom:1px }
+/* No transition and no delay: the whole point of owning this element. */
+.hv:hover em { visibility:visible }
+/* The first and last columns would push their tooltip off the side. Anchor
+   them to their own edge instead of to their centre. */
+.hv:first-child em { left:0;transform:none }
+.hv:last-child em { left:auto;right:0;transform:none }
+.grid { stroke:var(--grid);stroke-width:1 }
+.ylab { fill:var(--muted);font-size:11px;text-anchor:end;font-family:inherit }
+.xlab { fill:var(--muted);font-size:11px;text-anchor:middle;font-family:inherit }
+.area { fill:var(--avg);opacity:.16 }
+.line-avg { fill:none;stroke:var(--avg);stroke-width:2;stroke-linejoin:round }
+.line-peak { fill:none;stroke:var(--peak);stroke-width:2;stroke-dasharray:4 3;stroke-linejoin:round }
+.hourly { fill:none;stroke:var(--peak);stroke-width:1;opacity:.85;stroke-linejoin:round }
+.dot { fill:var(--avg) }
+.dot-flat { fill:var(--peak) }
+.key { display:flex;gap:16px;font-size:11px;color:var(--muted);margin:10px 0 0 }
+.key i { display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px }
+.key .ring { background:none;border:2px solid var(--avg);border-radius:50% }
+.note { border-left:2px solid var(--blue);padding:2px 0 2px 16px;font-size:12.5px;color:var(--text-soft);margin:0 0 22px }
+.note b { color:var(--text) }
+.mpick { position:absolute;opacity:0;width:0;height:0;pointer-events:none }
+/* Equal columns rather than each button sized to its own month. 'May 2026' and 'September 2026' are five characters apart, and a row that steps in and out with the calendar reads as an accident. The column count travels with the block, since only it knows how many months there are. */.tabs { display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 16px }
+.tab-row { display:grid;gap:8px;flex:1 1 auto;min-width:0 }
+.tabs-label { font-size:12px;color:var(--muted);align-self:center;margin-right:2px }
+.tab { padding:7px 13px;font-size:12px;border:1px solid var(--line);border-radius:6px; color:var(--text-soft);background:var(--card);text-decoration:none;cursor:pointer; user-select:none;text-align:center;white-space:nowrap }
+.tab:hover { border-color:var(--avg);color:var(--text) }
+.mpick:focus-visible~.tabs label { outline:2px solid var(--blue);outline-offset:2px }
+.pane { padding:6px 0 0;margin:0;display:none }
+.pane h3 { margin:0 0 3px }
+/* A month with one number gets the chart's own aspect ratio, so it is exactly as tall as a month that has one and switching moves nothing. */ .nochart { aspect-ratio:760/300;display:flex;align-items:center; justify-content:center;text-align:center;border:1px dashed var(--line); border-radius:8px;padding:20px }
+.nochart b { display:block;font-size:14px;font-weight:550;color:var(--text) }
+.nochart span { display:block;font-size:12px;color:var(--muted);margin-top:6px }
+/* Still a button -- it is reachable and it answers -- but it does not promise a chart. */ .tab-thin { color:var(--muted);border-style:dashed }
+.modal-box footer { border-top:1px solid var(--line);padding-top:14px;margin-top:8px; font-size:11.5px;color:var(--muted) }
+@media(max-width:900px) {
+    .stats { grid-template-columns:repeat(2,1fr) }
+}
+@media(max-width:520px) {
+    .stats { grid-template-columns:1fr }
+    .tab-row { grid-template-columns:repeat(2,minmax(0,1fr))!important }
+    .modal-box { margin:0;width:100vw;max-height:100vh;border-radius:0;padding:18px 14px 26px }
+}
+.hero>div { min-width:0 }
+h1,.description,.hero-meta span,.tags span,.game-link span,.updated-at { overflow-wrap:anywhere }
+.empty-image { background:var(--card) }
+.hero h1 { margin-top:0 }
+#r-2026-06:checked~.panes .p-2026-06{display:block}#r-2026-06:checked~.tabs label[for="r-2026-06"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-07:checked~.panes .p-2026-07{display:block}#r-2026-07:checked~.tabs label[for="r-2026-07"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-08:checked~.panes .p-2026-08{display:block}#r-2026-08:checked~.tabs label[for="r-2026-08"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}#r-2026-09:checked~.panes .p-2026-09{display:block}#r-2026-09:checked~.tabs label[for="r-2026-09"]{border-color:var(--avg);color:var(--text);background:var(--card-2)}.tab-row{grid-template-columns:repeat(4,minmax(0,1fr))}#tl-y0:checked~.tl>.tl-s0{display:block}#tl-y0:checked~.tl-tabs label[for="tl-y0"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y1:checked~.tl>.tl-s1{display:block}#tl-y1:checked~.tl-tabs label[for="tl-y1"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y2:checked~.tl>.tl-s2{display:block}#tl-y2:checked~.tl-tabs label[for="tl-y2"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y3:checked~.tl>.tl-s3{display:block}#tl-y3:checked~.tl-tabs label[for="tl-y3"]{color:var(--magenta);border-bottom-color:var(--magenta)}#tl-y4:checked~.tl>.tl-s4{display:block}#tl-y4:checked~.tl-tabs label[for="tl-y4"]{color:var(--magenta);border-bottom-color:var(--magenta)}</style>
+</head>
+<body>
+<!-- The game's own store backdrop, blurred and faded into the page. Steam
+     ships it un-darkened as background_raw, which is what lets the fade be
+     ours and end on whichever background the reader's theme is using. -->
+<div class="pagetop" aria-hidden="true"><img loading="lazy" class="pagetop-art" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/page_bg_raw.jpg?t=1773697315" alt=""></div>
+<div class="wrap" id="top">
+
+<!-- The way back. A reader arriving here from a search engine had no route to
+     the rest of the site before this existed. -->
+<header class="topbar sitebar">
+  <a class="brand stay" href="../"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="none" stroke="var(--blue)" stroke-width="1.7"/><path d="M6 15.5 L10 9.5 L13.5 13.5 L18 6.5" fill="none" stroke="var(--magenta)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>STEAMDB <b>NEXUS</b></span></a>
+</header>
+
+<header class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">Steam app 1262350 &middot; updated 12 Sep 2026, 19:04 UTC</p>
+    <h1>SIGNALIS</h1>
+    <p class="description">A classic survival horror experience set in a dystopian future where humanity has uncovered a dark secret. Unravel a cosmic mystery, escape terrifying creatures, and scavenge an off-world government facility as Elster, a technician Replika searching for her lost dreams.</p>
+    <!-- The charts opener sits in the wide column, so its subtitle has room to
+         run to two lines rather than being squeezed under a 340px image. -->
+    <div class="charts-open"><div class="charts-open-copy"><b>History charts</b><span>October 2022 to September 2026</span><label class="go" for="charts-open">Show the detailed charts <span aria-hidden="true">&#8599;</span></label></div><div class="charts-recent" role="group" aria-label="Last 30 days"><span class="charts-recent-title">Last 30 days</span><span class="charts-metric"><b class="down">−7.1</b><small>Gain</small></span><span class="charts-metric"><b class="down">−5.59%</b><small>% gain</small></span><span class="charts-metric"><b>223</b><small>Peak</small></span></div></div>
+  </div>
+  <div class="hero-media">
+    <img loading="lazy" class="header-image" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/header.jpg?t=1773697315" alt="SIGNALIS Steam header artwork">
+    <!-- Developer and publisher under the artwork: they belong to the picture
+         more than to the sentence above it, and they were pushing the opener
+         further from the heading it describes. -->
+    <div class="hero-meta"><span>rose-engine</span><span>Balor Games</span></div>
+  </div>
+</header>
+
+<div class="news-launch-row"><label class="news-launch" for="news-open"><b>News &amp; announcements</b><span>11 updates</span></label></div><div class="hero-stats"><div class="stat"><b>171</b><span>playing now</span></div><div class="stat"><b>171</b><span>24-hour peak</span></div><div class="stat"><b>862</b><span>all-time peak</span></div><div class="stat"><b>120</b><span>average, last 30 days</span></div></div>
+<nav class="header-links" aria-label="Game links"><div class="header-links-grid"><a class="game-link" href="https://store.steampowered.com/app/1262350/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10h18l-2-6H5l-2 6Z"/><path d="M4 10v10h16V10M9 20v-6h6v6M8 4l-1 6m9-6 1 6"/></svg><span>Steam store</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="http://rose-engine.org/signalis/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span>Official website</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="http://rose-engine.org" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 13v-1a8 8 0 0 1 16 0v1M20 16v2a3 3 0 0 1-3 3h-3"/><rect x="3" y="11" width="4" height="7" rx="2"/><rect x="17" y="11" width="4" height="7" rx="2"/></svg><span>Support</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a class="game-link" href="https://steamcommunity.com/app/1262350/discussions/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 15H7l-4 3V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a3 3 0 0 1-3 3h-2Z"/><path d="M8 18h8l5 3V10M7 7h8M7 11h5"/></svg><span>Steam discussions</span><svg class="outbound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div></nav>
+
+<div class="layout">
+  <main><article class="panel"><div class="information-heading"><h3>Game information</h3><span class="updated-at">Updated <b>12 Sep 2026, 19:04 UTC</b></span></div><dl><div class="fact"><dt>App ID</dt><dd>1262350</dd></div><div class="fact"><dt>Last updated</dt><dd>05 Oct 2025 <span class="quiet">build 20243420</span></dd></div><div class="fact"><dt>Developer</dt><dd>rose-engine</dd></div><div class="fact"><dt>Publisher</dt><dd>Balor Games</dd></div><div class="fact"><dt>Release date</dt><dd>27 Oct, 2022</dd></div><div class="fact"><dt>Platforms</dt><dd><span class="plat plat-windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>Windows</span></dd></div><div class="fact"><dt>Download size</dt><dd><span class="plat plat-windows" title="Windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>682 MB</span></dd></div><div class="fact"><dt>Install size</dt><dd><span class="plat plat-windows" title="Windows"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 6.1 10.1 5.1v6.4H3V6.1Z"/><path d="M11.3 4.9 21 3.6v7.9h-9.7V4.9Z"/><path d="M3 12.5h7.1v6.4L3 17.9v-5.4Z"/><path d="M11.3 12.5H21v7.9l-9.7-1.3v-6.6Z"/></svg>968 MB</span></dd></div><div class="fact"><dt>Genres</dt><dd>Action, Adventure, Indie</dd></div><div class="fact"><dt>Game modes</dt><dd>Single-player</dd></div><div class="fact"><dt>Controller support</dt><dd>Full</dd></div><div class="fact"><dt>Achievements</dt><dd>13</dd></div></dl><div class="info-more"><label class="go" for="launch-open">Launch options (1) <span aria-hidden="true">&#8599;</span></label><label class="go" for="saves-open">Cloud saves (1) <span aria-hidden="true">&#8599;</span></label></div></article><article class="panel"><h3>Features &amp; support</h3><div class="feature-section"><h3>Steam features</h3><div class="tags"><span>Steam Achievements</span><span>Steam Cloud</span><span>Family Sharing</span></div></div><div class="feature-section"><h3>Controllers &amp; input</h3><div class="tags"><span>Full controller support</span><span>DualShock Controller Support</span><span>DualSense Controller Support</span></div></div><div class="feature-section"><h3>Accessibility</h3><div class="tags"></div></div></article><article class="panel"><h3>Popular tags</h3><div class="tags"><span>Survival Horror</span><span>Psychological Horror</span><span>Female Protagonist</span><span>Sci-fi</span><span>Atmospheric</span><span>LGBTQ+</span><span>Lovecraftian</span><span>Dark</span><span>Singleplayer</span><span>Dystopian </span><span>Mystery</span><span>Puzzle</span><span>Cyberpunk</span><span>Violent</span><span>Action</span><span>Adventure</span><span>Cinematic</span><span>Shooter</span><span>Third-Person Shooter</span><span>Action-Adventure</span></div></article><details class="fold about-fold" id="about"><summary><span><b>About this game</b><small>Full description from Steam</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="about-copy">Searching for dreams inside of a nightmare
+
+Awaken from slumber and explore a surreal retrotech world as Elster, a technician Replika searching for her lost partner and her lost dreams. Discover terrifying secrets, challenging puzzles, and nightmarish creatures in a tense and melancholic experience of cosmic dread and classic psychological survival horror.
+
+SIGNALIS is set in a dystopian future where humanity has colonized the solar system, and the totalitarian regime of Eusan maintains an iron grip through aggressive surveillance and propaganda. Humanoid androids known as Replikas live among the populace, acting as workers, civil servants, and Protektors alongside the citizens they are designed to resemble.
+
+The story of SIGNALIS begins as a Replika named Elster awakens from cryostasis in a wrecked vessel. Now stranded on a cold planet, she sets out on a journey into depths unknown.
+
+Experience fear and apprehension as you encounter strange horrors, carefully manage scarce resources, and seek solutions to challenging riddles.
+
+Explore the dim corners of a derelict spaceship, delve into the mysterious fate of the inhabitants of a doomed facility, and seek what lies beneath.
+
+Discover an atmospheric science-fiction tale of identity, memory, and the terror of the unknown and unknowable, inspired by classic cosmic horror and the works of Stanley Kubrick, Hideaki Anno, and David Lynch.
+
+Wander a brutalist nightmare driven by fluid 3D character animations, dynamic lights and shadows, and complex transparency effects, complemented by cinematic sci-fi anime storytelling.</div></div></details><details class="fold" id="content-ratings"><summary><span><b>Content &amp; age ratings</b><small>Steam content notice · 2 regional ratings</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><section class="content-notice"><h3>Content notice</h3><p>This Game may contain content not appropriate for all ages, or may not be appropriate for viewing at work: Frequent Violence or Gore, General Mature Content.</p></section><section class="rating-list"><h3>Regional ratings</h3><div class="rating-row"><b>DEJUS</b><span>14</span><small>violência · temas sensíveis</small></div><div class="rating-row"><b>IGRS</b><span>18</span><small>Horor · Kekerasan</small></div></section></div></details><details class="fold" id="requirements"><summary><span><b>System requirements</b><small>Minimum and recommended hardware</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="two"><article class="panel"><h3>Minimum</h3><div class="requirements">Minimum:
+
+Requires a 64-bit processor and operating system
+
+OS: Windows 10
+
+Processor: Intel Core i5-2300 or AMD FX-4350
+
+Memory: 4 GB RAM
+
+Graphics: NVIDIA GeForce GTS 450 (1GB) or AMD Radeon HD 6570 (1GB)
+
+DirectX: Version 11
+
+Storage: 2 GB available space
+
+Additional Notes: 16:9 monitor recommended</div></article><article class="panel"><h3>Recommended</h3><div class="requirements">Recommended:
+
+Requires a 64-bit processor and operating system
+
+OS: Windows 10
+
+Processor: Intel Core i5-3470 or AMD FX-6300
+
+Memory: 4 GB RAM
+
+Graphics: NVIDIA GeForce GTX 760 (2GB) or AMD Radeon HD 7870 (2GB)
+
+DirectX: Version 11
+
+Storage: 2 GB available space
+
+Sound Card: Headphones recommended
+
+Additional Notes: 16:9 monitor recommended</div></article></div><article class="panel"><h3>macOS</h3><div class="requirements">Minimum:
+
+Recommended:</div></article><article class="panel"><h3>Linux</h3><div class="requirements">Minimum:
+
+Recommended:</div></article></div></details><details class="fold" id="languages"><summary><span><b>Supported languages</b><small>8 languages</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><table class="languages"><thead><tr><th>Language</th><th>Full audio</th></tr></thead><tbody><tr><td>English</td><td></td></tr><tr><td>German</td><td></td></tr><tr><td>Japanese</td><td></td></tr><tr><td>Korean</td><td></td></tr><tr><td>Russian</td><td></td></tr><tr><td>Simplified Chinese</td><td></td></tr><tr><td>Spanish - Latin America</td><td></td></tr><tr><td>French</td><td></td></tr></tbody></table><p class="muted">A blank audio cell means full audio was not marked in the returned language list.</p></div></details><details class="fold" id="media"><summary><span><b>Screenshots &amp; trailers</b><small>Screenshots and trailers</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><div class="gallery"><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_a2603694154878b8260c1dd498a06168cad012a4.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_a2603694154878b8260c1dd498a06168cad012a4.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 1"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_9d602346170b19121e4baec94f5fab54cc43637c.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_9d602346170b19121e4baec94f5fab54cc43637c.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 2"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_dc87789ecfa2f83dd58ac778866fbf7fdc1ec99a.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_dc87789ecfa2f83dd58ac778866fbf7fdc1ec99a.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 3"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_bb676746c44db01c2bd7ca78616032984f958106.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_bb676746c44db01c2bd7ca78616032984f958106.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 4"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_4ec0c13288054a99bc3987680a914ccda834e7f6.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_4ec0c13288054a99bc3987680a914ccda834e7f6.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 5"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_f7eb1a1944c4c9d3142bedb800ad3a43a6f82a60.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_f7eb1a1944c4c9d3142bedb800ad3a43a6f82a60.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 6"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_947db45ff0fb6da0e2d9031f0f71a32b740ed612.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_947db45ff0fb6da0e2d9031f0f71a32b740ed612.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 7"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_dcf8d44a07289d9b8ca9d1e9b9ae2a002dd76f6e.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_dcf8d44a07289d9b8ca9d1e9b9ae2a002dd76f6e.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 8"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_c7fcc30c5e2cd2ddf44bc01b2d43964abba72076.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_c7fcc30c5e2cd2ddf44bc01b2d43964abba72076.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 9"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_5338061a9fa31755789e0a7698fadc2d4ab29b94.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_5338061a9fa31755789e0a7698fadc2d4ab29b94.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 10"></a><a href="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_af2cb31dc253d739c3ce2f6930be5d339e199be2.1920x1080.jpg?t=1773697315" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1262350/ss_af2cb31dc253d739c3ce2f6930be5d339e199be2.600x338.jpg?t=1773697315" alt="SIGNALIS screenshot 11"></a></div><h3>Trailers</h3><div class="gallery"><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256913244/movie.293x165.jpg?t=1666887901" alt="Launch Trailer"><p>Launch Trailer</p><a href="https://store.steampowered.com/app/1262350/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256910985/movie.293x165.jpg?t=1665773311" alt="Gameplay Overview"><p>Gameplay Overview</p><a href="https://store.steampowered.com/app/1262350/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256891139/movie.293x165.jpg?t=1664497433" alt="Release Date Trailer"><p>Release Date Trailer</p><a href="https://store.steampowered.com/app/1262350/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="trailer"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256878180/movie.293x165.jpg?t=1664497256" alt="SIGNALIS Spring 2022 Press Showcase"><p>SIGNALIS Spring 2022 Press Showcase</p><a href="https://store.steampowered.com/app/1262350/" target="_blank" rel="noopener noreferrer">Watch on Steam <span aria-hidden="true">&#8599;</span></a></article></div></div></details><details class="fold" id="achievements"><summary><span><b>Achievements</b><small>Total count and selected achievements</small></span><span class="plus" aria-hidden="true">+</span></summary><div class="fold-body"><p class="muted">13 achievements in total.</p><details class="spoilers"><summary>Show selected achievements (may contain spoilers)</summary><div class="achievement-grid"><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/e5960d2b8e5ce0f78764b6fad99007dcb41ca8b2.jpg" alt=""><div><b>SYNCHRONIZITÄT</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/66d9a53b36cc07e66fad42353f4e3c8809efd76b.jpg" alt=""><div><b>BESCHLAGNAHMT</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/829110b3335e1ecffcaa5814ee40b1bd4d712c48.jpg" alt=""><div><b>ABWÄRTS</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/c9225dd5ac0414e2cbe614b7458701997ecde88f.jpg" alt=""><div><b>LIMINALITÄT</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/4506084f1867f0375d4e062c8da4255d0b9cc1b8.jpg" alt=""><div><b>DAS ENDE</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/79e47ab4ef29a3a2fc88fb4e28fdc01f71ddb8c2.jpg" alt=""><div><b>GESTALTZERFALL</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/9884dbca098cf6efac27b884c31d116aaeadb15c.jpg" alt=""><div><b>VERSPRECHEN</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/7b960fecef172c1d105ab568dd5fe95b8c4ccf76.jpg" alt=""><div><b>SCHWERER AUSNAHMEFEHLER</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/ee4a1ee14240bb1678d753b0e96e1784f7346b07.jpg" alt=""><div><b>EINHORN</b><small>Hidden achievement</small></div></div><div class="achievement"><img loading="lazy" class="" src="https://shared.akamai.steamstatic.com/community_assets/images/apps/1262350/768750b5ba5bed873c89080f688b8af31bf326bb.jpg" alt=""><div><b>NITRO</b><small>Hidden achievement</small></div></div></div></details><p><a href="https://steamcommunity.com/stats/1262350/achievements/" target="_blank" rel="noopener noreferrer">View all Steam achievements <span aria-hidden="true">&#8599;</span></a></p></div></details></main>
+  <aside><article class="panel reviews s-good"><h3>Steam reviews</h3><div class="review-score">96.6<span>%</span></div><b class="positive">Overwhelmingly Positive</b><p class="muted">34,396 reviews</p><div class="meter"><i style="width:96.58971973485289%"></i></div><div class="split"><span>33,223 positive</span><span>1,173 negative</span></div><div class="rvhist s-good"><b>Review trend</b><span class="rv-note">last 24 months</span><span class="rv-bars" role="img" aria-label="Review counts per month for the last 24 months, Oct 2024 to Sep 2026 so far"><span class="rv-bar"><span class="rv-up" style="height:64.78%"><span class="rv-down" style="height:3.42%"></span></span><em><b>Oct 2024 &middot; <span class="s-good">96.6% positive</span></b>508 positive, 18 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:82.51%"><span class="rv-down" style="height:2.99%"></span></span><em><b>Nov 2024 &middot; <span class="s-good">97.0% positive</span></b>650 positive, 20 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:98.15%"><span class="rv-down" style="height:3.76%"></span></span><em><b>Dec 2024 &middot; <span class="s-good">96.2% positive</span></b>767 positive, 30 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:84.85%"><span class="rv-down" style="height:3.77%"></span></span><em><b>Jan 2025 &middot; <span class="s-good">96.2% positive</span></b>663 positive, 26 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:51.11%"><span class="rv-down" style="height:2.65%"></span></span><em><b>Feb 2025 &middot; <span class="s-good">97.3% positive</span></b>404 positive, 11 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:3.08%"></span></span><em><b>Mar 2025 &middot; <span class="s-good">96.9% positive</span></b>787 positive, 25 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:58.13%"><span class="rv-down" style="height:3.18%"></span></span><em><b>Apr 2025 &middot; <span class="s-good">96.8% positive</span></b>457 positive, 15 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:49.01%"><span class="rv-down" style="height:3.02%"></span></span><em><b>May 2025 &middot; <span class="s-good">97.0% positive</span></b>386 positive, 12 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:55.42%"><span class="rv-down" style="height:3.56%"></span></span><em><b>Jun 2025 &middot; <span class="s-good">96.4% positive</span></b>434 positive, 16 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:82.88%"><span class="rv-down" style="height:4.61%"></span></span><em><b>Jul 2025 &middot; <span class="s-good">95.4% positive</span></b>642 positive, 31 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:90.39%"><span class="rv-down" style="height:4.22%"></span></span><em><b>Aug 2025 &middot; <span class="s-good">95.8% positive</span></b>703 positive, 31 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:58.50%"><span class="rv-down" style="height:4.63%"></span></span><em><b>Sep 2025 &middot; <span class="s-good">95.4% positive</span></b>453 positive, 22 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:73.28%"><span class="rv-down" style="height:4.20%"></span></span><em><b>Oct 2025 &middot; <span class="s-good">95.8% positive</span></b>570 positive, 25 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:65.52%"><span class="rv-down" style="height:5.26%"></span></span><em><b>Nov 2025 &middot; <span class="s-good">94.7% positive</span></b>504 positive, 28 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:61.95%"><span class="rv-down" style="height:2.39%"></span></span><em><b>Dec 2025 &middot; <span class="s-good">97.6% positive</span></b>491 positive, 12 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:73.77%"><span class="rv-down" style="height:3.51%"></span></span><em><b>Jan 2026 &middot; <span class="s-good">96.5% positive</span></b>578 positive, 21 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:46.80%"><span class="rv-down" style="height:5.79%"></span></span><em><b>Feb 2026 &middot; <span class="s-good">94.2% positive</span></b>358 positive, 22 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:78.33%"><span class="rv-down" style="height:5.03%"></span></span><em><b>Mar 2026 &middot; <span class="s-good">95.0% positive</span></b>604 positive, 32 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:46.67%"><span class="rv-down" style="height:3.17%"></span></span><em><b>Apr 2026 &middot; <span class="s-good">96.8% positive</span></b>367 positive, 12 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:42.61%"><span class="rv-down" style="height:4.05%"></span></span><em><b>May 2026 &middot; <span class="s-good">96.0% positive</span></b>332 positive, 14 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:47.54%"><span class="rv-down" style="height:4.15%"></span></span><em><b>Jun 2026 &middot; <span class="s-good">95.9% positive</span></b>370 positive, 16 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:79.56%"><span class="rv-down" style="height:6.66%"></span></span><em><b>Jul 2026 &middot; <span class="s-good">93.3% positive</span></b>603 positive, 43 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:54.31%"><span class="rv-down" style="height:3.63%"></span></span><em><b>Aug 2026 &middot; <span class="s-good">96.4% positive</span></b>425 positive, 16 negative</em></span><span class="rv-bar rv-part"><span class="rv-up" style="height:19.21%"><span class="rv-down" style="height:3.21%"></span></span><em><b>Sep 2026 so far &middot; <span class="s-good">96.8% positive</span></b>151 positive, 5 negative</em></span></span><span class="rv-span"><span>Oct 2024</span><span>Sep 2026 so far</span></span></div><div class="recent s-good"><b>Last 30 days</b><span class="rw">Overwhelmingly Positive</span><span class="rn">96% of 404</span><span class="rv-bars rv-days" role="img" aria-label="Review counts per day for the last 30 days, Fri 14 Aug to Sat 12 Sep so far"><span class="rv-bar"><span class="rv-up" style="height:70.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Fri 14 Aug &middot; <span class="s-good">100.0% positive</span></b>14 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:70.00%"><span class="rv-down" style="height:7.14%"></span></span><em><b>Sat 15 Aug &middot; <span class="s-good">92.9% positive</span></b>13 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:70.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sun 16 Aug &middot; <span class="s-good">100.0% positive</span></b>14 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:55.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mon 17 Aug &middot; <span class="s-good">100.0% positive</span></b>11 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:55.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 18 Aug &middot; <span class="s-good">100.0% positive</span></b>11 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:80.00%"><span class="rv-down" style="height:6.25%"></span></span><em><b>Wed 19 Aug &middot; <span class="s-good">93.8% positive</span></b>15 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:35.00%"><span class="rv-down" style="height:14.29%"></span></span><em><b>Thu 20 Aug &middot; <span class="s-good">85.7% positive</span></b>6 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Fri 21 Aug &middot; <span class="s-good">100.0% positive</span></b>12 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:100.00%"><span class="rv-down" style="height:10.00%"></span></span><em><b>Sat 22 Aug &middot; <span class="s-good">90.0% positive</span></b>18 positive, 2 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:75.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sun 23 Aug &middot; <span class="s-good">100.0% positive</span></b>15 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:65.00%"><span class="rv-down" style="height:15.38%"></span></span><em><b>Mon 24 Aug &middot; <span class="s-good">84.6% positive</span></b>11 positive, 2 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:55.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 25 Aug &middot; <span class="s-good">100.0% positive</span></b>11 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:70.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Wed 26 Aug &middot; <span class="s-good">100.0% positive</span></b>14 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:90.00%"><span class="rv-down" style="height:5.56%"></span></span><em><b>Thu 27 Aug &middot; <span class="s-good">94.4% positive</span></b>17 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:25.00%"><span class="rv-down" style="height:20.00%"></span></span><em><b>Fri 28 Aug &middot; <span class="s-good">80.0% positive</span></b>4 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:75.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sat 29 Aug &middot; <span class="s-good">100.0% positive</span></b>15 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:8.33%"></span></span><em><b>Sun 30 Aug &middot; <span class="s-good">91.7% positive</span></b>11 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:85.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Mon 31 Aug &middot; <span class="s-good">100.0% positive</span></b>17 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:50.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 1 Sep &middot; <span class="s-good">100.0% positive</span></b>10 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:35.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Wed 2 Sep &middot; <span class="s-good">100.0% positive</span></b>7 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:75.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Thu 3 Sep &middot; <span class="s-good">100.0% positive</span></b>15 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:75.00%"><span class="rv-down" style="height:13.33%"></span></span><em><b>Fri 4 Sep &middot; <span class="s-good">86.7% positive</span></b>13 positive, 2 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:65.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sat 5 Sep &middot; <span class="s-good">100.0% positive</span></b>13 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:65.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Sun 6 Sep &middot; <span class="s-good">100.0% positive</span></b>13 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:65.00%"><span class="rv-down" style="height:7.69%"></span></span><em><b>Mon 7 Sep &middot; <span class="s-good">92.3% positive</span></b>12 positive, 1 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:75.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Tue 8 Sep &middot; <span class="s-good">100.0% positive</span></b>15 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:65.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Wed 9 Sep &middot; <span class="s-good">100.0% positive</span></b>13 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:70.00%"><span class="rv-down" style="height:0.00%"></span></span><em><b>Thu 10 Sep &middot; <span class="s-good">100.0% positive</span></b>14 positive, 0 negative</em></span><span class="rv-bar"><span class="rv-up" style="height:80.00%"><span class="rv-down" style="height:6.25%"></span></span><em><b>Fri 11 Sep &middot; <span class="s-good">93.8% positive</span></b>15 positive, 1 negative</em></span><span class="rv-bar rv-part"><span class="rv-up" style="height:60.00%"><span class="rv-down" style="height:8.33%"></span></span><em><b>Sat 12 Sep so far &middot; <span class="s-good">91.7% positive</span></b>11 positive, 1 negative</em></span></span><span class="rv-span"><span>Fri 14 Aug</span><span>Sat 12 Sep so far</span></span></div><p><a href="https://steamcommunity.com/app/1262350/reviews/" target="_blank" rel="noopener noreferrer">Show the reviews on Steam <span aria-hidden="true">&#8599;</span></a></p></article><article class="panel"><h3>Steam Deck</h3><div class="deck-status">Verified</div><p class="muted"></p><a href="https://store.steampowered.com/app/1262350/" target="_blank" rel="noopener noreferrer">View compatibility on Steam <span aria-hidden="true">&#8599;</span></a></article><article class="panel"><h3>More like this</h3><ul class="related"><li><a class="stay" href="2825860">The Sinking City 2</a></li><li><a class="stay" href="3764200">Resident Evil Requiem</a></li><li><a class="stay" href="1091500">Cyberpunk 2077</a></li><li><a class="stay" href="2569760">The Mound: Omen of Cthulhu</a></li><li><a class="stay" href="2050650">Resident Evil 4</a></li><li><a class="stay" href="381210">Dead by Daylight</a></li><li><a class="stay" href="3219630">Halloween: The Game</a></li><li><a class="stay" href="1962700">Subnautica 2</a></li></ul></article></aside>
+</div>
+
+<input class="modal-toggle" type="checkbox" id="charts-open"><div class="modal"><label class="modal-back" for="charts-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Player history"><label class="modal-x" for="charts-open" aria-label="Close">&times;</label><h2>Player history</h2><p class="sub">SIGNALIS &middot; October 2022 to September 2026</p><div class="stats"><div class="stat"><b>171</b><span>playing now</span></div><div class="stat"><b>171</b><span>24-hour peak</span></div><div class="stat"><b>862</b><span>all-time peak</span></div><div class="stat"><b>120</b><span>average, last 30 days</span></div></div><section class="panel" id="last30"><h2>The last 30 days</h2><p class="why">Every hourly sample, 719 of them, with the daily peak drawn over the top. The saw-tooth is one day: a peak in the evening, a trough before dawn. 1 sample(s) came back as zero between two live hours and were dropped, so the faint line is broken where they were.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">60</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">120</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">181</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">241</text><text class="xlab" x="62.9" y="286">13 Aug</text><text class="xlab" x="177.1" y="286">18 Aug</text><text class="xlab" x="290.3" y="286">23 Aug</text><text class="xlab" x="404.5" y="286">28 Aug</text><text class="xlab" x="518.7" y="286">02 Sep</text><text class="xlab" x="630.9" y="286">07 Sep</text><text class="xlab" x="746.0" y="286">12 Sep</text><path class="hourly" d="M62.0,104.1 L62.9,89.5 L63.9,95.8 L64.8,105.1 L65.8,116.5 L66.7,122.8 L67.7,127.9 L68.6,120.7 L69.6,129.0 L70.5,145.6 L71.5,169.5 L72.4,181.9 L73.4,186.1 L74.3,175.7 L75.3,176.7 L76.2,189.2 L77.2,168.4 L78.2,149.7 L79.1,142.5 L80.1,126.9 L80.8,119.6 L82.0,120.7 L82.9,95.8 L83.9,104.1 L84.8,76.0 L85.8,102.0 L86.7,131.1 L87.7,133.1 L88.6,129.0 L89.6,137.3 L90.5,122.8 L91.4,129.0 L92.4,124.8 L93.3,143.5 L94.3,164.3 L95.2,176.7 L96.2,171.5 L97.2,184.0 L98.1,172.6 L99.1,168.4 L100.0,164.3 L101.0,161.2 L102.0,136.2 L103.0,126.9 L103.9,97.8 L104.8,94.7 L105.8,91.6 L106.7,71.9 L107.7,93.7 L108.6,64.6 L109.6,93.7 L110.5,119.6 L111.5,121.7 L112.4,126.9 L113.4,119.6 L114.3,114.4 L115.2,117.6 L116.2,133.1 L117.1,166.3 L118.1,166.3 L119.0,165.3 L120.0,166.3 L121.0,164.3 L121.9,149.7 L122.9,136.2 L123.9,149.7 L124.8,126.9 L125.8,103.0 L126.7,97.8 L127.7,92.6 L128.6,85.4 L129.5,79.2 L130.5,57.4 L131.4,48.0 L132.3,51.1 L133.2,89.5 L134.3,84.3 L135.2,99.9 L136.2,105.1 L137.1,124.8 L138.1,136.2 L139.0,138.3 L140.0,177.8 L140.9,187.1 L141.9,200.6 L142.8,187.1 L143.8,184.0 L144.7,169.5 L145.7,172.6 L146.6,149.7 L147.6,152.9 L148.6,136.2 L149.6,145.6 L150.5,140.4 L151.5,114.4 L152.4,113.4 L153.3,99.9 L154.3,83.3 L155.2,92.6 L156.2,102.0 L157.1,131.1 L158.1,112.4 L159.0,119.6 L160.0,135.2 L160.9,159.1 L161.8,164.3 L162.8,180.9 L163.8,177.8 L164.7,192.3 L165.6,187.1 L166.6,193.3 L167.5,176.7 L168.5,166.3 L169.4,151.8 L170.4,145.6 L171.5,116.5 L172.4,125.9 L173.3,101.0 L174.3,102.0 L175.2,104.1 L176.2,88.5 L177.1,68.8 L178.0,101.0 L179.0,106.1 L179.9,126.9 L180.9,122.8 L181.8,120.7 L182.8,132.1 L183.7,158.0 L184.7,176.7 L185.6,186.1 L186.6,181.9 L187.5,200.6 L188.4,206.8 L189.4,193.3 L190.4,194.4 L191.3,188.1 L192.3,187.1 L193.3,166.3 L194.3,149.7 L195.3,148.7 L196.2,143.5 L197.2,125.9 L198.1,108.2 L199.0,93.7 L199.9,96.8 L200.9,116.5 L201.9,133.1 L202.8,138.3 L203.8,114.4 L204.7,126.9 L205.7,142.5 L206.6,151.8 L207.5,159.1 L208.5,186.1 L209.4,202.7 L210.3,202.7 L211.3,218.3 L212.3,197.5 L213.2,191.3 L214.1,177.8 L215.1,161.2 L216.1,143.5 L217.1,150.8 L218.1,144.6 L219.0,126.9 L219.8,118.6 L220.9,101.0 L221.8,86.4 L222.8,93.7 L223.7,114.4 L224.7,129.0 L225.6,135.2 L226.6,119.6 L227.5,134.2 L228.5,135.2 L229.4,145.6 L230.3,178.8 L231.3,195.4 L232.2,196.5 L233.2,192.3 L234.1,204.8 L235.1,199.6 L236.0,187.1 L237.0,172.6 L238.0,157.0 L238.9,144.6 L240.0,137.3 L240.9,130.0 L241.8,133.1 L242.8,124.8 L243.8,116.5 L244.7,116.5 L245.7,106.1 L246.5,94.7 L247.5,117.6 L248.5,132.1 L249.4,133.1 L250.4,114.4 L251.3,144.6 L252.3,130.0 L253.2,147.7 L254.1,167.4 L255.1,165.3 L256.0,167.4 L257.0,173.6 L257.9,173.6 L258.9,161.2 L259.6,158.0 L260.8,136.2 L261.8,125.9 L262.8,135.2 L263.7,114.4 L264.7,95.8 L265.6,89.5 L266.5,74.0 L267.5,70.8 L268.4,93.7 L269.4,92.6 L270.3,96.8 L271.3,96.8 L272.2,99.9 L273.2,113.4 L274.1,109.3 L275.1,129.0 L276.0,149.7 L276.9,165.3 L277.9,169.5 L278.9,176.7 L279.8,175.7 L280.8,171.5 L281.7,158.0 L282.7,167.4 L283.7,144.6 L284.6,116.5 L285.6,113.4 L286.6,91.6 L287.5,78.1 L288.4,59.4 L289.3,62.5 L290.3,45.9 L291.2,55.3 L292.2,61.5 L293.1,74.0 L294.1,99.9 L295.1,115.5 L296.0,112.4 L296.9,106.1 L297.9,126.9 L298.8,152.9 L299.8,186.1 L300.7,196.5 L301.7,183.0 L302.6,186.1 L303.6,187.1 L304.5,189.2 L305.5,184.0 L306.5,158.0 L307.4,141.4 L308.4,148.7 L309.4,119.6 L310.3,114.4 L311.3,116.5 L312.2,106.1 L313.2,99.9 L314.1,95.8 L315.1,114.4 L316.0,117.6 L316.6,131.1 L317.9,124.8 L318.9,116.5 L319.8,124.8 L320.7,133.1 L321.7,160.1 L322.6,198.5 L323.6,200.6 L324.5,189.2 L325.5,194.4 L326.4,199.6 L327.4,197.5 L328.3,181.9 L329.3,173.6 L330.3,166.3 L331.3,138.3 L332.2,119.6 L333.1,125.9 L334.1,129.0 L335.1,120.7 L336.0,105.1 L336.9,95.8 L337.9,130.0 L338.8,127.9 L339.8,127.9 L340.6,131.1 L341.7,125.9 L342.6,131.1 L343.6,154.9 L344.5,164.3 L345.4,174.7 L346.4,193.3 L347.3,194.4 L348.3,211.0 L349.3,201.6 L350.2,206.8 L351.2,180.9 L352.1,169.5 L353.1,165.3 L354.1,145.6 L355.1,150.8 L356.0,160.1 L357.0,133.1 L357.9,120.7 L358.6,111.3 L359.8,77.1 L360.7,106.1 L361.6,109.3 L362.6,118.6 L363.5,121.7 L364.5,126.9 L365.4,131.1 L366.4,135.2 L367.4,172.6 L368.3,194.4 L369.2,197.5 L370.2,202.7 L371.1,205.8 L372.1,192.3 L373.0,176.7 L374.0,193.3 L375.0,185.0 L376.0,177.8 L377.0,161.2 L377.9,154.9 L378.9,153.9 L379.8,171.5 L380.8,156.0 L381.7,109.3 L382.6,101.0 L383.6,116.5 L384.5,136.2 L385.4,139.4 L386.4,135.2 L387.4,134.2 L388.3,124.8 L389.2,136.2 L390.2,171.5 L391.1,194.4 L392.1,211.0 L393.0,207.9 L394.0,199.6 L394.9,196.5 L395.9,190.2 L396.9,186.1 L397.8,184.0 L398.8,160.1 L399.8,146.6 L400.8,144.6 L401.7,149.7 L402.7,135.2 L403.6,113.4 L404.5,108.2 L405.4,112.4 L406.4,132.1 L407.4,126.9 L408.1,116.5 L409.2,109.3 L410.2,123.8 L411.1,123.8 L412.1,123.8 L412.8,154.9 L414.0,170.5 L414.9,185.0 L415.9,188.1 L416.8,186.1 L417.8,173.6 L418.7,174.7 L419.7,172.6 L420.6,145.6 L421.6,129.0 L422.6,103.0 L423.5,102.0 L424.5,111.3 L425.4,103.0 L426.4,95.8 L427.3,77.1 L428.2,71.9 L429.2,84.3 L430.2,119.6 L431.1,112.4 L432.0,98.9 L433.0,95.8 L434.0,110.3 L434.9,124.8 L435.8,135.2 L436.8,161.2 L437.7,174.7 L438.7,174.7 L439.6,184.0 L440.6,168.4 L441.6,153.9 L442.5,152.9 L443.5,143.5 L444.4,135.2 L445.5,120.7 L446.4,91.6 L447.3,83.3 L448.2,67.7 L449.2,71.9 L449.8,74.0 L451.1,50.1 L452.0,43.9 L453.0,80.2 L454.0,98.9 L454.9,106.1 L455.5,113.4 L456.8,116.5 L457.7,132.1 L458.7,136.2 L459.6,160.1 L460.6,180.9 L461.5,189.2 L462.4,184.0 L463.4,180.9 L464.4,170.5 L465.4,161.2 L466.3,154.9 L467.2,125.9 L468.2,121.7 L469.2,115.5 L470.1,99.9 L471.1,111.3 L472.0,84.3 L473.0,88.5 L473.9,86.4 L474.9,104.1 L475.8,130.0 L476.8,141.4 L477.7,126.9 L478.7,116.5 L479.6,134.2 L480.5,135.2 L481.5,145.6 L482.4,185.0 L483.4,200.6 L484.3,198.5 L485.3,204.8 L486.2,192.3 L487.2,173.6 L488.1,163.2 L489.1,160.1 L490.1,153.9 L491.1,151.8 L492.1,140.4 L493.0,109.3 L493.9,110.3 L494.9,94.7 L495.8,91.6 L496.7,105.1 L497.7,135.2 L498.6,151.8 L499.6,132.1 L500.6,136.2 L501.5,124.8 L502.4,134.2 L503.4,167.4 L504.3,163.2 L505.3,186.1 L506.2,192.3 L507.2,192.3 L508.1,193.3 L509.1,188.1 L510.0,199.6 L511.0,181.9 L512.0,177.8 L512.9,146.6 L513.9,140.4 L514.6,137.3 L515.8,143.5 L516.8,145.6 L517.7,122.8 L518.7,111.3 L519.6,121.7 L520.6,111.3 L521.1,141.4 L522.5,129.0 L523.4,141.4 L524.3,139.4 L525.3,143.5 L526.2,149.7 L527.2,150.8 L528.1,174.7 L529.1,187.1 L530.0,186.1 L531.0,188.1 L531.9,189.2 L532.9,186.1 L533.9,178.8 L534.8,153.9 L535.8,137.3 L536.7,135.2 L537.7,124.8 L538.6,124.8 L539.5,125.9 L540.5,108.2 L541.4,98.9 L542.4,111.3 L543.4,140.4 L544.3,127.9 L545.3,148.7 L546.2,157.0 L547.2,127.9 L548.1,131.1 L549.1,136.2 L550.0,158.0 L550.9,173.6 L551.9,184.0 L552.8,191.3 L553.8,191.3 L554.8,181.9 L555.7,185.0 L556.7,172.6 L557.6,175.7 L558.6,151.8 L559.6,152.9 L560.6,123.8 L561.5,109.3 M563.3,97.8 L564.3,96.8 L565.2,93.7 L566.2,97.8 L567.2,124.8 L568.1,133.1 L569.0,129.0 L570.0,111.3 L570.9,121.7 L571.9,132.1 L572.8,142.5 L573.8,167.4 L574.7,172.6 L575.7,171.5 L576.4,172.6 L577.6,165.3 L578.6,154.9 L579.5,149.7 L580.5,130.0 L581.4,105.1 L582.4,95.8 L583.3,86.4 L584.3,94.7 L585.2,88.5 L586.2,55.3 L587.1,42.8 L588.1,34.5 L589.0,63.6 L589.9,74.0 L590.9,92.6 L591.8,123.8 L592.8,97.8 L593.7,121.7 L594.7,124.8 L595.6,137.3 L596.4,151.8 L597.6,167.4 L598.5,162.2 L599.4,148.7 L600.4,150.8 L601.4,122.8 L602.3,134.2 L603.3,124.8 L603.9,123.8 L605.2,97.8 L606.1,91.6 L607.1,55.3 L608.0,47.0 L609.0,52.2 L609.9,64.6 L610.9,78.1 L611.8,92.6 L612.8,101.0 L613.7,110.3 L614.7,107.2 L615.6,106.1 L616.6,140.4 L617.5,134.2 L618.4,132.1 L619.4,126.9 L620.4,160.1 L621.1,177.8 L622.3,204.8 L623.2,190.2 L624.2,198.5 L625.1,190.2 L626.1,178.8 L627.1,161.2 L628.1,136.2 L629.0,114.4 L630.0,93.7 L630.9,49.1 L631.8,52.2 L632.5,58.4 L633.7,71.9 L634.7,102.0 L635.6,99.9 L636.6,123.8 L637.5,134.2 L638.5,113.4 L639.3,118.6 L640.3,143.5 L641.3,171.5 L642.2,194.4 L643.2,195.4 L644.2,190.2 L645.1,202.7 L645.9,201.6 L647.0,194.4 L648.0,184.0 L648.9,171.5 L649.9,148.7 L650.9,144.6 L651.9,142.5 L652.8,144.6 L653.8,105.1 L654.7,107.2 L655.6,102.0 L656.6,110.3 L657.5,106.1 L658.5,135.2 L659.4,156.0 L660.4,131.1 L661.3,138.3 L662.3,138.3 L663.2,168.4 L664.1,179.8 L665.1,186.1 L666.0,195.4 L667.0,213.1 L667.9,219.3 L668.9,198.5 L669.9,195.4 L670.8,188.1 L671.8,172.6 L672.8,157.0 L673.7,170.5 L674.7,153.9 L675.6,141.4 L676.6,126.9 L677.5,135.2 L678.5,120.7 L679.4,117.6 L680.4,117.6 L681.3,137.3 L682.3,156.0 L683.2,146.6 L684.2,139.4 L685.1,153.9 L686.0,159.1 L687.0,170.5 L688.0,181.9 L688.9,199.6 L689.9,197.5 L690.8,198.5 L691.7,199.6 L692.7,198.5 L693.7,198.5 L694.6,178.8 L695.6,166.3 L696.6,171.5 L697.6,159.1 L698.5,152.9 L699.4,119.6 L700.3,138.3 L701.3,95.8 L702.2,119.6 L703.2,130.0 L704.1,163.2 L704.8,158.0 L706.0,142.5 L707.0,137.3 L707.9,144.6 L708.8,143.5 L709.8,165.3 L710.7,187.1 L711.7,181.9 L712.6,183.0 L713.6,192.3 L714.6,199.6 L715.5,193.3 L716.5,194.4 L717.5,186.1 L718.4,167.4 L719.4,161.2 L720.4,157.0 L721.3,158.0 L722.3,140.4 L723.2,134.2 L724.2,127.9 L725.1,112.4 L726.1,124.8 L727.0,145.6 L727.9,152.9 L728.9,138.3 L729.8,124.8 L730.8,118.6 L731.7,123.8 L732.7,141.4 L733.6,168.4 L734.6,164.3 L735.5,179.8 L736.5,180.9 L737.4,176.7 L738.4,153.9 L739.3,161.2 L740.3,154.9 L741.3,132.1 L742.2,125.9 L743.2,105.1 L744.1,97.8 L745.0,94.7 L746.0,88.5"/><path class="area" d="M62.9,89.5 C70.2,85.0 77.5,80.0 84.8,76.0 C92.7,71.7 100.7,69.4 108.6,64.6 C116.2,60.0 123.8,44.9 131.4,48.0 C139.1,51.1 146.7,79.8 154.3,83.3 C161.9,86.8 169.5,66.9 177.1,68.8 C184.4,70.6 191.7,90.7 199.0,93.7 C206.6,96.8 214.2,86.4 221.8,86.4 C230.1,86.5 238.3,98.0 246.5,94.7 C253.5,91.9 260.5,78.7 267.5,70.8 C275.1,62.4 282.7,42.1 290.3,45.9 C298.2,49.9 306.2,95.8 314.1,95.8 C321.7,95.8 329.3,95.8 336.9,95.8 C344.5,95.8 352.2,76.2 359.8,77.1 C367.4,77.9 375.0,95.7 382.6,101.0 C389.9,106.0 397.2,112.6 404.5,108.2 C412.4,103.5 420.3,82.6 428.2,71.9 C436.2,61.1 444.1,40.5 452.0,43.9 C458.7,46.7 465.4,78.9 472.0,84.3 C480.0,90.8 487.9,88.4 495.8,91.6 C503.4,94.7 511.0,110.1 518.7,111.3 C526.3,112.5 533.9,100.2 541.4,98.9 C549.4,97.5 557.3,98.7 565.2,93.7 C572.8,88.9 580.4,42.0 588.1,34.5 C594.7,27.9 601.4,46.4 608.0,47.0 C615.7,47.6 623.3,47.1 630.9,49.1 C639.1,51.2 647.4,90.5 655.6,102.0 C663.6,113.1 671.5,118.9 679.4,117.6 C686.7,116.3 694.0,96.8 701.3,95.8 C709.2,94.6 717.2,114.1 725.1,112.4 C732.1,110.8 739.0,96.5 746.0,88.5 L746.0,266.0 L62.9,266.0 Z"/><path class="line-avg" d="M62.9,89.5 C70.2,85.0 77.5,80.0 84.8,76.0 C92.7,71.7 100.7,69.4 108.6,64.6 C116.2,60.0 123.8,44.9 131.4,48.0 C139.1,51.1 146.7,79.8 154.3,83.3 C161.9,86.8 169.5,66.9 177.1,68.8 C184.4,70.6 191.7,90.7 199.0,93.7 C206.6,96.8 214.2,86.4 221.8,86.4 C230.1,86.5 238.3,98.0 246.5,94.7 C253.5,91.9 260.5,78.7 267.5,70.8 C275.1,62.4 282.7,42.1 290.3,45.9 C298.2,49.9 306.2,95.8 314.1,95.8 C321.7,95.8 329.3,95.8 336.9,95.8 C344.5,95.8 352.2,76.2 359.8,77.1 C367.4,77.9 375.0,95.7 382.6,101.0 C389.9,106.0 397.2,112.6 404.5,108.2 C412.4,103.5 420.3,82.6 428.2,71.9 C436.2,61.1 444.1,40.5 452.0,43.9 C458.7,46.7 465.4,78.9 472.0,84.3 C480.0,90.8 487.9,88.4 495.8,91.6 C503.4,94.7 511.0,110.1 518.7,111.3 C526.3,112.5 533.9,100.2 541.4,98.9 C549.4,97.5 557.3,98.7 565.2,93.7 C572.8,88.9 580.4,42.0 588.1,34.5 C594.7,27.9 601.4,46.4 608.0,47.0 C615.7,47.6 623.3,47.1 630.9,49.1 C639.1,51.2 647.4,90.5 655.6,102.0 C663.6,113.1 671.5,118.9 679.4,117.6 C686.7,116.3 694.0,96.8 701.3,95.8 C709.2,94.6 717.2,114.1 725.1,112.4 C732.1,110.8 739.0,96.5 746.0,88.5"/><circle class="dot" cx="62.9" cy="89.5" r="3"/><circle class="dot" cx="84.8" cy="76.0" r="3"/><circle class="dot" cx="108.6" cy="64.6" r="3"/><circle class="dot" cx="131.4" cy="48.0" r="3"/><circle class="dot" cx="154.3" cy="83.3" r="3"/><circle class="dot" cx="177.1" cy="68.8" r="3"/><circle class="dot" cx="199.0" cy="93.7" r="3"/><circle class="dot" cx="221.8" cy="86.4" r="3"/><circle class="dot" cx="246.5" cy="94.7" r="3"/><circle class="dot" cx="267.5" cy="70.8" r="3"/><circle class="dot" cx="290.3" cy="45.9" r="3"/><circle class="dot" cx="314.1" cy="95.8" r="3"/><circle class="dot" cx="336.9" cy="95.8" r="3"/><circle class="dot" cx="359.8" cy="77.1" r="3"/><circle class="dot" cx="382.6" cy="101.0" r="3"/><circle class="dot" cx="404.5" cy="108.2" r="3"/><circle class="dot" cx="428.2" cy="71.9" r="3"/><circle class="dot" cx="452.0" cy="43.9" r="3"/><circle class="dot" cx="472.0" cy="84.3" r="3"/><circle class="dot" cx="495.8" cy="91.6" r="3"/><circle class="dot" cx="518.7" cy="111.3" r="3"/><circle class="dot" cx="541.4" cy="98.9" r="3"/><circle class="dot" cx="565.2" cy="93.7" r="3"/><circle class="dot" cx="588.1" cy="34.5" r="3"/><circle class="dot" cx="608.0" cy="47.0" r="3"/><circle class="dot" cx="630.9" cy="49.1" r="3"/><circle class="dot" cx="655.6" cy="102.0" r="3"/><circle class="dot" cx="679.4" cy="117.6" r="3"/><circle class="dot" cx="701.3" cy="95.8" r="3"/><circle class="dot" cx="725.1" cy="112.4" r="3"/><circle class="dot" cx="746.0" cy="88.5" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:1.5632%"><em><b>13 Aug 2026</b>170 peak</em></span><span class="hv" style="left:9.7211%;width:3.0040%"><em><b>14 Aug 2026</b>183 peak</em></span><span class="hv" style="left:12.7251%;width:3.0665%"><em><b>15 Aug 2026</b>194 peak</em></span><span class="hv" style="left:15.7916%;width:3.0054%"><em><b>16 Aug 2026</b>210 peak</em></span><span class="hv" style="left:18.7970%;width:3.0041%"><em><b>17 Aug 2026</b>176 peak</em></span><span class="hv" style="left:21.8012%;width:2.9436%"><em><b>18 Aug 2026</b>190 peak</em></span><span class="hv" style="left:24.7447%;width:2.9436%"><em><b>19 Aug 2026</b>166 peak</em></span><span class="hv" style="left:27.6884%;width:3.1240%"><em><b>20 Aug 2026</b>173 peak</em></span><span class="hv" style="left:30.8123%;width:3.0039%"><em><b>21 Aug 2026</b>165 peak</em></span><span class="hv" style="left:33.8162%;width:2.8820%"><em><b>22 Aug 2026</b>188 peak</em></span><span class="hv" style="left:36.6982%;width:3.0659%"><em><b>23 Aug 2026</b>212 peak</em></span><span class="hv" style="left:39.7641%;width:3.0667%"><em><b>24 Aug 2026</b>164 peak</em></span><span class="hv" style="left:42.8308%;width:3.0054%"><em><b>25 Aug 2026</b>164 peak</em></span><span class="hv" style="left:45.8362%;width:3.0073%"><em><b>26 Aug 2026</b>182 peak</em></span><span class="hv" style="left:48.8435%;width:2.9441%"><em><b>27 Aug 2026</b>159 peak</em></span><span class="hv" style="left:51.7876%;width:3.0000%"><em><b>28 Aug 2026</b>152 peak</em></span><span class="hv" style="left:54.7876%;width:3.1238%"><em><b>29 Aug 2026</b>187 peak</em></span><span class="hv" style="left:57.9114%;width:2.8805%"><em><b>30 Aug 2026</b>214 peak</em></span><span class="hv" style="left:60.7919%;width:2.8814%"><em><b>31 Aug 2026</b>175 peak</em></span><span class="hv" style="left:63.6733%;width:3.0686%"><em><b>01 Sep 2026</b>168 peak</em></span><span class="hv" style="left:66.7419%;width:3.0022%"><em><b>02 Sep 2026</b>149 peak</em></span><span class="hv" style="left:69.7441%;width:3.0646%"><em><b>03 Sep 2026</b>161 peak</em></span><span class="hv" style="left:72.8087%;width:3.0660%"><em><b>04 Sep 2026</b>166 peak</em></span><span class="hv" style="left:75.8747%;width:2.8160%"><em><b>05 Sep 2026</b>223 peak</em></span><span class="hv" style="left:78.6907%;width:2.8187%"><em><b>06 Sep 2026</b>211 peak</em></span><span class="hv" style="left:81.5095%;width:3.1307%"><em><b>07 Sep 2026</b>209 peak</em></span><span class="hv" style="left:84.6402%;width:3.1942%"><em><b>08 Sep 2026</b>158 peak</em></span><span class="hv" style="left:87.8343%;width:3.0055%"><em><b>09 Sep 2026</b>143 peak</em></span><span class="hv" style="left:90.8398%;width:3.0028%"><em><b>10 Sep 2026</b>164 peak</em></span><span class="hv" style="left:93.8427%;width:2.9396%"><em><b>11 Sep 2026</b>148 peak</em></span><span class="hv" style="left:96.7823%;width:1.3756%"><em><b>12 Sep 2026</b>171 peak</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Daily peak</span><span><i style="background:var(--peak)"></i>Every hourly sample</span></div></section><section class="panel"><h2>All time</h2><p class="why">48 months, October 2022 to September 2026. The highest number of people in the game at once, each month, on a time axis -- a gap in the record stays a gap.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players by month, all time" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">233</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">465</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">698</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">931</text><text class="xlab" x="62.0" y="286">Oct 2022</text><text class="xlab" x="178.2" y="286">Jun 2023</text><text class="xlab" x="295.3" y="286">Feb 2024</text><text class="xlab" x="411.4" y="286">Oct 2024</text><text class="xlab" x="527.6" y="286">Jun 2025</text><text class="xlab" x="644.7" y="286">Feb 2026</text><path class="area" d="M62.0,34.5 C66.9,49.8 71.9,67.5 76.8,80.4 C81.6,93.0 86.4,107.8 91.2,111.3 C96.1,114.9 101.0,112.1 106.0,119.6 C110.9,127.1 115.9,188.4 120.8,194.8 C125.3,200.7 129.7,199.0 134.2,201.0 C139.1,203.3 144.1,225.4 149.0,222.8 C153.8,220.2 158.6,187.0 163.3,186.2 C168.3,185.4 173.2,188.0 178.2,187.3 C182.9,186.6 187.7,149.9 192.5,155.9 C197.4,162.1 202.4,219.2 207.3,225.7 C212.2,232.3 217.2,213.9 222.1,195.1 C226.9,176.9 231.7,124.6 236.5,115.3 C241.4,105.8 246.3,139.3 251.3,140.3 C256.1,141.3 260.8,128.2 265.6,122.1 C270.6,115.7 275.5,93.2 280.4,102.7 C285.4,112.2 290.3,174.8 295.3,179.0 C299.9,182.9 304.5,129.9 309.1,131.2 C314.1,132.6 319.0,185.5 323.9,190.5 C328.7,195.4 333.5,168.3 338.3,162.3 C343.2,156.2 348.2,154.3 353.1,154.6 C357.9,154.8 362.7,160.3 367.4,163.7 C372.4,167.2 377.3,170.1 382.3,175.2 C387.2,180.4 392.1,195.7 397.1,194.6 C401.8,193.5 406.6,179.1 411.4,169.3 C416.3,159.2 421.3,136.9 426.2,134.7 C431.0,132.5 435.8,153.4 440.6,155.4 C445.5,157.4 450.4,141.2 455.4,148.1 C460.3,155.1 465.3,202.0 470.2,203.4 C474.7,204.7 479.1,160.9 483.6,161.0 C488.5,161.1 493.5,203.7 498.4,208.8 C503.2,213.7 508.0,218.0 512.7,214.7 C517.7,211.3 522.6,173.5 527.6,172.3 C532.3,171.1 537.1,174.3 541.9,173.6 C546.8,172.9 551.8,143.8 556.7,148.1 C561.7,152.4 566.6,195.3 571.5,199.4 C576.3,203.4 581.1,181.2 585.9,173.6 C590.8,165.8 595.8,153.6 600.7,153.2 C605.5,152.8 610.3,169.5 615.0,170.7 C620.0,171.8 624.9,165.0 629.8,167.7 C634.8,170.4 639.7,208.6 644.7,205.6 C649.1,202.9 653.6,157.2 658.1,155.1 C663.0,152.8 667.9,187.2 672.9,197.0 C677.6,206.5 682.4,215.0 687.2,213.4 C692.1,211.7 697.1,192.0 702.0,186.5 C706.8,181.2 711.6,178.7 716.4,180.6 C721.3,182.6 726.2,194.3 731.2,198.6 C736.1,202.8 741.1,203.6 746.0,206.1 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,34.5 C66.9,49.8 71.9,67.5 76.8,80.4 C81.6,93.0 86.4,107.8 91.2,111.3 C96.1,114.9 101.0,112.1 106.0,119.6 C110.9,127.1 115.9,188.4 120.8,194.8 C125.3,200.7 129.7,199.0 134.2,201.0 C139.1,203.3 144.1,225.4 149.0,222.8 C153.8,220.2 158.6,187.0 163.3,186.2 C168.3,185.4 173.2,188.0 178.2,187.3 C182.9,186.6 187.7,149.9 192.5,155.9 C197.4,162.1 202.4,219.2 207.3,225.7 C212.2,232.3 217.2,213.9 222.1,195.1 C226.9,176.9 231.7,124.6 236.5,115.3 C241.4,105.8 246.3,139.3 251.3,140.3 C256.1,141.3 260.8,128.2 265.6,122.1 C270.6,115.7 275.5,93.2 280.4,102.7 C285.4,112.2 290.3,174.8 295.3,179.0 C299.9,182.9 304.5,129.9 309.1,131.2 C314.1,132.6 319.0,185.5 323.9,190.5 C328.7,195.4 333.5,168.3 338.3,162.3 C343.2,156.2 348.2,154.3 353.1,154.6 C357.9,154.8 362.7,160.3 367.4,163.7 C372.4,167.2 377.3,170.1 382.3,175.2 C387.2,180.4 392.1,195.7 397.1,194.6 C401.8,193.5 406.6,179.1 411.4,169.3 C416.3,159.2 421.3,136.9 426.2,134.7 C431.0,132.5 435.8,153.4 440.6,155.4 C445.5,157.4 450.4,141.2 455.4,148.1 C460.3,155.1 465.3,202.0 470.2,203.4 C474.7,204.7 479.1,160.9 483.6,161.0 C488.5,161.1 493.5,203.7 498.4,208.8 C503.2,213.7 508.0,218.0 512.7,214.7 C517.7,211.3 522.6,173.5 527.6,172.3 C532.3,171.1 537.1,174.3 541.9,173.6 C546.8,172.9 551.8,143.8 556.7,148.1 C561.7,152.4 566.6,195.3 571.5,199.4 C576.3,203.4 581.1,181.2 585.9,173.6 C590.8,165.8 595.8,153.6 600.7,153.2 C605.5,152.8 610.3,169.5 615.0,170.7 C620.0,171.8 624.9,165.0 629.8,167.7 C634.8,170.4 639.7,208.6 644.7,205.6 C649.1,202.9 653.6,157.2 658.1,155.1 C663.0,152.8 667.9,187.2 672.9,197.0 C677.6,206.5 682.4,215.0 687.2,213.4 C692.1,211.7 697.1,192.0 702.0,186.5 C706.8,181.2 711.6,178.7 716.4,180.6 C721.3,182.6 726.2,194.3 731.2,198.6 C736.1,202.8 741.1,203.6 746.0,206.1"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:0.9748%"><em><b>Oct 2022</b>862 monthly peak</em></span><span class="hv" style="left:9.1327%;width:1.9182%"><em><b>Nov 2022</b>691 monthly peak</em></span><span class="hv" style="left:11.0510%;width:1.9182%"><em><b>Dec 2022</b>576 monthly peak</em></span><span class="hv" style="left:12.9692%;width:1.9497%"><em><b>Jan 2023</b>545 monthly peak</em></span><span class="hv" style="left:14.9189%;width:1.8553%"><em><b>Feb 2023</b>265 monthly peak</em></span><span class="hv" style="left:16.7742%;width:1.8553%"><em><b>Mar 2023</b>242 monthly peak</em></span><span class="hv" style="left:18.6296%;width:1.9182%"><em><b>Apr 2023</b>161 monthly peak</em></span><span class="hv" style="left:20.5478%;width:1.9182%"><em><b>May 2023</b>297 monthly peak</em></span><span class="hv" style="left:22.4661%;width:1.9182%"><em><b>Jun 2023</b>293 monthly peak</em></span><span class="hv" style="left:24.3843%;width:1.9182%"><em><b>Jul 2023</b>410 monthly peak</em></span><span class="hv" style="left:26.3025%;width:1.9497%"><em><b>Aug 2023</b>150 monthly peak</em></span><span class="hv" style="left:28.2522%;width:1.9182%"><em><b>Sep 2023</b>264 monthly peak</em></span><span class="hv" style="left:30.1705%;width:1.9182%"><em><b>Oct 2023</b>561 monthly peak</em></span><span class="hv" style="left:32.0887%;width:1.9182%"><em><b>Nov 2023</b>468 monthly peak</em></span><span class="hv" style="left:34.0070%;width:1.9182%"><em><b>Dec 2023</b>536 monthly peak</em></span><span class="hv" style="left:35.9252%;width:1.9497%"><em><b>Jan 2024</b>608 monthly peak</em></span><span class="hv" style="left:37.8749%;width:1.8868%"><em><b>Feb 2024</b>324 monthly peak</em></span><span class="hv" style="left:39.7617%;width:1.8868%"><em><b>Mar 2024</b>502 monthly peak</em></span><span class="hv" style="left:41.6485%;width:1.9182%"><em><b>Apr 2024</b>281 monthly peak</em></span><span class="hv" style="left:43.5667%;width:1.9182%"><em><b>May 2024</b>386 monthly peak</em></span><span class="hv" style="left:45.4849%;width:1.9182%"><em><b>Jun 2024</b>415 monthly peak</em></span><span class="hv" style="left:47.4032%;width:1.9182%"><em><b>Jul 2024</b>381 monthly peak</em></span><span class="hv" style="left:49.3214%;width:1.9497%"><em><b>Aug 2024</b>338 monthly peak</em></span><span class="hv" style="left:51.2711%;width:1.9182%"><em><b>Sep 2024</b>266 monthly peak</em></span><span class="hv" style="left:53.1893%;width:1.9182%"><em><b>Oct 2024</b>360 monthly peak</em></span><span class="hv" style="left:55.1076%;width:1.9182%"><em><b>Nov 2024</b>489 monthly peak</em></span><span class="hv" style="left:57.0258%;width:1.9182%"><em><b>Dec 2024</b>412 monthly peak</em></span><span class="hv" style="left:58.9441%;width:1.9497%"><em><b>Jan 2025</b>439 monthly peak</em></span><span class="hv" style="left:60.8937%;width:1.8553%"><em><b>Feb 2025</b>233 monthly peak</em></span><span class="hv" style="left:62.7491%;width:1.8553%"><em><b>Mar 2025</b>391 monthly peak</em></span><span class="hv" style="left:64.6044%;width:1.9182%"><em><b>Apr 2025</b>213 monthly peak</em></span><span class="hv" style="left:66.5227%;width:1.9182%"><em><b>May 2025</b>191 monthly peak</em></span><span class="hv" style="left:68.4409%;width:1.9182%"><em><b>Jun 2025</b>349 monthly peak</em></span><span class="hv" style="left:70.3592%;width:1.9182%"><em><b>Jul 2025</b>344 monthly peak</em></span><span class="hv" style="left:72.2774%;width:1.9497%"><em><b>Aug 2025</b>439 monthly peak</em></span><span class="hv" style="left:74.2271%;width:1.9182%"><em><b>Sep 2025</b>248 monthly peak</em></span><span class="hv" style="left:76.1453%;width:1.9182%"><em><b>Oct 2025</b>344 monthly peak</em></span><span class="hv" style="left:78.0636%;width:1.9182%"><em><b>Nov 2025</b>420 monthly peak</em></span><span class="hv" style="left:79.9818%;width:1.9182%"><em><b>Dec 2025</b>355 monthly peak</em></span><span class="hv" style="left:81.9000%;width:1.9497%"><em><b>Jan 2026</b>366 monthly peak</em></span><span class="hv" style="left:83.8497%;width:1.8553%"><em><b>Feb 2026</b>225 monthly peak</em></span><span class="hv" style="left:85.7051%;width:1.8553%"><em><b>Mar 2026</b>413 monthly peak</em></span><span class="hv" style="left:87.5604%;width:1.9182%"><em><b>Apr 2026</b>257 monthly peak</em></span><span class="hv" style="left:89.4786%;width:1.9182%"><em><b>May 2026</b>196 monthly peak</em></span><span class="hv" style="left:91.3969%;width:1.9182%"><em><b>Jun 2026</b>296 monthly peak</em></span><span class="hv" style="left:93.3151%;width:1.9182%"><em><b>Jul 2026</b>318 monthly peak</em></span><span class="hv" style="left:95.2334%;width:1.9497%"><em><b>Aug 2026</b>251 monthly peak</em></span><span class="hv" style="left:97.1831%;width:0.9748%"><em><b>Sep 2026</b>223 monthly peak</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Monthly peak</span></div></section><section class="panel"><h2>The last four months</h2><p class="why">The highest number of people in the game at once, each month. Four, because four is as far back as the source keeps anything finer than one figure a month.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players by month" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">86</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">172</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">258</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">343</text><text class="xlab" x="62.0" y="286">June 2026</text><text class="xlab" x="290.0" y="286">July 2026</text><text class="xlab" x="518.0" y="286">August 2026</text><text class="xlab" x="746.0" y="286">September 2026</text><path class="area" d="M62.0,50.5 C138.0,45.2 214.0,29.1 290.0,34.5 C366.0,40.0 442.0,71.8 518.0,83.3 C594.0,94.8 670.0,96.9 746.0,103.7 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,50.5 C138.0,45.2 214.0,29.1 290.0,34.5 C366.0,40.0 442.0,71.8 518.0,83.3 C594.0,94.8 670.0,96.9 746.0,103.7"/><circle class="dot" cx="62.0" cy="50.5" r="5"/><circle class="dot" cx="290.0" cy="34.5" r="5"/><circle class="dot" cx="518.0" cy="83.3" r="5"/><circle class="dot" cx="746.0" cy="103.7" r="5"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:15.0000%"><em><b>June 2026</b>296 peak — daily detail below</em></span><span class="hv" style="left:23.1579%;width:30.0000%"><em><b>July 2026</b>318 peak — daily detail below</em></span><span class="hv" style="left:53.1579%;width:30.0000%"><em><b>August 2026</b>251 peak — hourly detail below</em></span><span class="hv" style="left:83.1579%;width:15.0000%"><em><b>September 2026</b>223 peak — hourly detail below</em></span></span></div><div class="key"><span><i style="background:var(--avg)"></i>Monthly peak</span><span><i class="ring"></i>Has finer data below</span></div></section><input class="mpick" type="radio" name="month" id="r-2026-06"><input class="mpick" type="radio" name="month" id="r-2026-07"><input class="mpick" type="radio" name="month" id="r-2026-08"><input class="mpick" type="radio" name="month" id="r-2026-09" checked><div class="tabs"><span class="tabs-label">Open a month:</span><div class="tab-row"><label class="tab" for="r-2026-06">June 2026</label><label class="tab" for="r-2026-07">July 2026</label><label class="tab" for="r-2026-08">August 2026</label><label class="tab" for="r-2026-09">September 2026</label></div></div><div class="panes"><section class="pane p-2026-06"><h3>June 2026</h3><p class="why">17 days, each one the highest figure that day. The source keeps no hourly detail this far back.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">80</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">160</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">240</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">320</text><text class="xlab" x="62.0" y="286">01 Jun</text><text class="xlab" x="415.8" y="286">16 Jun</text><text class="xlab" x="463.0" y="286">18 Jun</text><text class="xlab" x="510.1" y="286">20 Jun</text><text class="xlab" x="557.3" y="286">22 Jun</text><text class="xlab" x="604.5" y="286">24 Jun</text><text class="xlab" x="651.7" y="286">26 Jun</text><text class="xlab" x="698.8" y="286">28 Jun</text><text class="xlab" x="746.0" y="286">30 Jun</text><path class="area" d="M62.0,34.5 C172.1,74.7 282.1,114.8 392.2,155.0 C400.1,157.8 407.9,162.5 415.8,163.6 C423.7,164.6 431.5,161.1 439.4,161.2 C447.2,161.3 455.1,164.6 463.0,164.3 C470.8,164.1 478.7,162.8 486.6,159.6 C494.4,156.5 502.3,149.2 510.1,145.6 C518.0,141.9 525.9,134.1 533.7,137.7 C541.6,141.4 549.4,160.7 557.3,167.5 C565.2,174.2 573.0,179.3 580.9,178.4 C588.8,177.5 596.6,168.1 604.5,162.0 C612.3,155.9 620.2,153.3 628.1,141.7 C635.9,130.1 643.8,107.1 651.7,92.4 C659.5,77.7 667.4,62.9 675.2,53.3 C683.1,43.6 691.0,36.3 698.8,34.5 C706.7,32.7 714.6,36.5 722.4,42.3 C730.3,48.2 738.1,60.6 746.0,69.7 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,34.5 C172.1,74.7 282.1,114.8 392.2,155.0 C400.1,157.8 407.9,162.5 415.8,163.6 C423.7,164.6 431.5,161.1 439.4,161.2 C447.2,161.3 455.1,164.6 463.0,164.3 C470.8,164.1 478.7,162.8 486.6,159.6 C494.4,156.5 502.3,149.2 510.1,145.6 C518.0,141.9 525.9,134.1 533.7,137.7 C541.6,141.4 549.4,160.7 557.3,167.5 C565.2,174.2 573.0,179.3 580.9,178.4 C588.8,177.5 596.6,168.1 604.5,162.0 C612.3,155.9 620.2,153.3 628.1,141.7 C635.9,130.1 643.8,107.1 651.7,92.4 C659.5,77.7 667.4,62.9 675.2,53.3 C683.1,43.6 691.0,36.3 698.8,34.5 C706.7,32.7 714.6,36.5 722.4,42.3 C730.3,48.2 738.1,60.6 746.0,69.7"/><circle class="dot" cx="62.0" cy="34.5" r="3"/><circle class="dot" cx="392.2" cy="155.0" r="3"/><circle class="dot" cx="415.8" cy="163.6" r="3"/><circle class="dot" cx="439.4" cy="161.2" r="3"/><circle class="dot" cx="463.0" cy="164.3" r="3"/><circle class="dot" cx="486.6" cy="159.6" r="3"/><circle class="dot" cx="510.1" cy="145.6" r="3"/><circle class="dot" cx="533.7" cy="137.7" r="3"/><circle class="dot" cx="557.3" cy="167.5" r="3"/><circle class="dot" cx="580.9" cy="178.4" r="3"/><circle class="dot" cx="604.5" cy="162.0" r="3"/><circle class="dot" cx="628.1" cy="141.7" r="3"/><circle class="dot" cx="651.7" cy="92.4" r="3"/><circle class="dot" cx="675.2" cy="53.3" r="3"/><circle class="dot" cx="698.8" cy="34.5" r="3"/><circle class="dot" cx="722.4" cy="42.3" r="3"/><circle class="dot" cx="746.0" cy="69.7" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:21.7241%"><em><b>01 Jun 2026</b>296 peak</em></span><span class="hv" style="left:29.8820%;width:23.2759%"><em><b>15 Jun 2026</b>142 peak</em></span><span class="hv" style="left:53.1579%;width:3.1034%"><em><b>16 Jun 2026</b>131 peak</em></span><span class="hv" style="left:56.2613%;width:3.1034%"><em><b>17 Jun 2026</b>134 peak</em></span><span class="hv" style="left:59.3648%;width:3.1034%"><em><b>18 Jun 2026</b>130 peak</em></span><span class="hv" style="left:62.4682%;width:3.1034%"><em><b>19 Jun 2026</b>136 peak</em></span><span class="hv" style="left:65.5717%;width:3.1034%"><em><b>20 Jun 2026</b>154 peak</em></span><span class="hv" style="left:68.6751%;width:3.1034%"><em><b>21 Jun 2026</b>164 peak</em></span><span class="hv" style="left:71.7786%;width:3.1034%"><em><b>22 Jun 2026</b>126 peak</em></span><span class="hv" style="left:74.8820%;width:3.1034%"><em><b>23 Jun 2026</b>112 peak</em></span><span class="hv" style="left:77.9855%;width:3.1034%"><em><b>24 Jun 2026</b>133 peak</em></span><span class="hv" style="left:81.0889%;width:3.1034%"><em><b>25 Jun 2026</b>159 peak</em></span><span class="hv" style="left:84.1924%;width:3.1034%"><em><b>26 Jun 2026</b>222 peak</em></span><span class="hv" style="left:87.2958%;width:3.1034%"><em><b>27 Jun 2026</b>272 peak</em></span><span class="hv" style="left:90.3993%;width:3.1034%"><em><b>28 Jun 2026</b>296 peak</em></span><span class="hv" style="left:93.5027%;width:3.1034%"><em><b>29 Jun 2026</b>286 peak</em></span><span class="hv" style="left:96.6062%;width:1.5517%"><em><b>30 Jun 2026</b>251 peak</em></span></span></div></section><section class="pane p-2026-07"><h3>July 2026</h3><p class="why">31 days, each one the highest figure that day. The source keeps no hourly detail this far back.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">86</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">172</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">258</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">343</text><text class="xlab" x="62.0" y="286">01 Jul</text><text class="xlab" x="176.0" y="286">06 Jul</text><text class="xlab" x="290.0" y="286">11 Jul</text><text class="xlab" x="404.0" y="286">16 Jul</text><text class="xlab" x="518.0" y="286">21 Jul</text><text class="xlab" x="632.0" y="286">26 Jul</text><text class="xlab" x="746.0" y="286">31 Jul</text><path class="area" d="M62.0,77.5 C69.6,74.3 77.2,67.8 84.8,68.0 C92.4,68.2 100.0,82.2 107.6,78.9 C115.2,75.6 122.8,55.7 130.4,48.3 C138.0,40.9 145.6,28.2 153.2,34.5 C160.8,40.8 168.4,83.4 176.0,86.2 C183.6,89.0 191.2,82.4 198.8,83.3 C206.4,84.2 214.0,102.1 221.6,102.2 C229.2,102.3 236.8,86.3 244.4,84.0 C252.0,81.7 259.6,88.3 267.2,88.4 C274.8,88.5 282.4,88.0 290.0,84.7 C297.6,81.5 305.2,65.5 312.8,68.7 C320.4,72.0 328.0,92.8 335.6,104.4 C343.2,116.0 350.8,135.1 358.4,138.6 C366.0,142.1 373.6,126.1 381.2,125.5 C388.8,124.9 396.4,134.0 404.0,135.0 C411.6,135.9 419.2,133.5 426.8,131.3 C434.4,129.1 442.0,122.6 449.6,121.9 C457.2,121.2 464.8,122.5 472.4,122.6 C480.0,122.7 487.6,127.0 495.2,124.8 C502.8,122.6 510.4,98.1 518.0,95.7 C525.6,93.2 533.2,109.3 540.8,110.2 C548.4,111.2 556.0,103.3 563.6,101.5 C571.2,99.7 578.8,101.1 586.4,97.1 C594.0,93.1 601.6,77.3 609.2,72.4 C616.8,67.5 624.4,63.4 632.0,66.5 C639.6,69.7 647.2,83.7 654.8,92.0 C662.4,100.4 670.0,113.3 677.6,116.8 C685.2,120.3 692.8,112.5 700.4,113.1 C708.0,113.7 715.6,117.4 723.2,120.4 C730.8,123.4 738.4,127.7 746.0,131.3 L746.0,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,77.5 C69.6,74.3 77.2,67.8 84.8,68.0 C92.4,68.2 100.0,82.2 107.6,78.9 C115.2,75.6 122.8,55.7 130.4,48.3 C138.0,40.9 145.6,28.2 153.2,34.5 C160.8,40.8 168.4,83.4 176.0,86.2 C183.6,89.0 191.2,82.4 198.8,83.3 C206.4,84.2 214.0,102.1 221.6,102.2 C229.2,102.3 236.8,86.3 244.4,84.0 C252.0,81.7 259.6,88.3 267.2,88.4 C274.8,88.5 282.4,88.0 290.0,84.7 C297.6,81.5 305.2,65.5 312.8,68.7 C320.4,72.0 328.0,92.8 335.6,104.4 C343.2,116.0 350.8,135.1 358.4,138.6 C366.0,142.1 373.6,126.1 381.2,125.5 C388.8,124.9 396.4,134.0 404.0,135.0 C411.6,135.9 419.2,133.5 426.8,131.3 C434.4,129.1 442.0,122.6 449.6,121.9 C457.2,121.2 464.8,122.5 472.4,122.6 C480.0,122.7 487.6,127.0 495.2,124.8 C502.8,122.6 510.4,98.1 518.0,95.7 C525.6,93.2 533.2,109.3 540.8,110.2 C548.4,111.2 556.0,103.3 563.6,101.5 C571.2,99.7 578.8,101.1 586.4,97.1 C594.0,93.1 601.6,77.3 609.2,72.4 C616.8,67.5 624.4,63.4 632.0,66.5 C639.6,69.7 647.2,83.7 654.8,92.0 C662.4,100.4 670.0,113.3 677.6,116.8 C685.2,120.3 692.8,112.5 700.4,113.1 C708.0,113.7 715.6,117.4 723.2,120.4 C730.8,123.4 738.4,127.7 746.0,131.3"/><circle class="dot" cx="62.0" cy="77.5" r="3"/><circle class="dot" cx="84.8" cy="68.0" r="3"/><circle class="dot" cx="107.6" cy="78.9" r="3"/><circle class="dot" cx="130.4" cy="48.3" r="3"/><circle class="dot" cx="153.2" cy="34.5" r="3"/><circle class="dot" cx="176.0" cy="86.2" r="3"/><circle class="dot" cx="198.8" cy="83.3" r="3"/><circle class="dot" cx="221.6" cy="102.2" r="3"/><circle class="dot" cx="244.4" cy="84.0" r="3"/><circle class="dot" cx="267.2" cy="88.4" r="3"/><circle class="dot" cx="290.0" cy="84.7" r="3"/><circle class="dot" cx="312.8" cy="68.7" r="3"/><circle class="dot" cx="335.6" cy="104.4" r="3"/><circle class="dot" cx="358.4" cy="138.6" r="3"/><circle class="dot" cx="381.2" cy="125.5" r="3"/><circle class="dot" cx="404.0" cy="135.0" r="3"/><circle class="dot" cx="426.8" cy="131.3" r="3"/><circle class="dot" cx="449.6" cy="121.9" r="3"/><circle class="dot" cx="472.4" cy="122.6" r="3"/><circle class="dot" cx="495.2" cy="124.8" r="3"/><circle class="dot" cx="518.0" cy="95.7" r="3"/><circle class="dot" cx="540.8" cy="110.2" r="3"/><circle class="dot" cx="563.6" cy="101.5" r="3"/><circle class="dot" cx="586.4" cy="97.1" r="3"/><circle class="dot" cx="609.2" cy="72.4" r="3"/><circle class="dot" cx="632.0" cy="66.5" r="3"/><circle class="dot" cx="654.8" cy="92.0" r="3"/><circle class="dot" cx="677.6" cy="116.8" r="3"/><circle class="dot" cx="700.4" cy="113.1" r="3"/><circle class="dot" cx="723.2" cy="120.4" r="3"/><circle class="dot" cx="746.0" cy="131.3" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:1.5000%"><em><b>01 Jul 2026</b>259 peak</em></span><span class="hv" style="left:9.6579%;width:3.0000%"><em><b>02 Jul 2026</b>272 peak</em></span><span class="hv" style="left:12.6579%;width:3.0000%"><em><b>03 Jul 2026</b>257 peak</em></span><span class="hv" style="left:15.6579%;width:3.0000%"><em><b>04 Jul 2026</b>299 peak</em></span><span class="hv" style="left:18.6579%;width:3.0000%"><em><b>05 Jul 2026</b>318 peak</em></span><span class="hv" style="left:21.6579%;width:3.0000%"><em><b>06 Jul 2026</b>247 peak</em></span><span class="hv" style="left:24.6579%;width:3.0000%"><em><b>07 Jul 2026</b>251 peak</em></span><span class="hv" style="left:27.6579%;width:3.0000%"><em><b>08 Jul 2026</b>225 peak</em></span><span class="hv" style="left:30.6579%;width:3.0000%"><em><b>09 Jul 2026</b>250 peak</em></span><span class="hv" style="left:33.6579%;width:3.0000%"><em><b>10 Jul 2026</b>244 peak</em></span><span class="hv" style="left:36.6579%;width:3.0000%"><em><b>11 Jul 2026</b>249 peak</em></span><span class="hv" style="left:39.6579%;width:3.0000%"><em><b>12 Jul 2026</b>271 peak</em></span><span class="hv" style="left:42.6579%;width:3.0000%"><em><b>13 Jul 2026</b>222 peak</em></span><span class="hv" style="left:45.6579%;width:3.0000%"><em><b>14 Jul 2026</b>175 peak</em></span><span class="hv" style="left:48.6579%;width:3.0000%"><em><b>15 Jul 2026</b>193 peak</em></span><span class="hv" style="left:51.6579%;width:3.0000%"><em><b>16 Jul 2026</b>180 peak</em></span><span class="hv" style="left:54.6579%;width:3.0000%"><em><b>17 Jul 2026</b>185 peak</em></span><span class="hv" style="left:57.6579%;width:3.0000%"><em><b>18 Jul 2026</b>198 peak</em></span><span class="hv" style="left:60.6579%;width:3.0000%"><em><b>19 Jul 2026</b>197 peak</em></span><span class="hv" style="left:63.6579%;width:3.0000%"><em><b>20 Jul 2026</b>194 peak</em></span><span class="hv" style="left:66.6579%;width:3.0000%"><em><b>21 Jul 2026</b>234 peak</em></span><span class="hv" style="left:69.6579%;width:3.0000%"><em><b>22 Jul 2026</b>214 peak</em></span><span class="hv" style="left:72.6579%;width:3.0000%"><em><b>23 Jul 2026</b>226 peak</em></span><span class="hv" style="left:75.6579%;width:3.0000%"><em><b>24 Jul 2026</b>232 peak</em></span><span class="hv" style="left:78.6579%;width:3.0000%"><em><b>25 Jul 2026</b>266 peak</em></span><span class="hv" style="left:81.6579%;width:3.0000%"><em><b>26 Jul 2026</b>274 peak</em></span><span class="hv" style="left:84.6579%;width:3.0000%"><em><b>27 Jul 2026</b>239 peak</em></span><span class="hv" style="left:87.6579%;width:3.0000%"><em><b>28 Jul 2026</b>205 peak</em></span><span class="hv" style="left:90.6579%;width:3.0000%"><em><b>29 Jul 2026</b>210 peak</em></span><span class="hv" style="left:93.6579%;width:3.0000%"><em><b>30 Jul 2026</b>200 peak</em></span><span class="hv" style="left:96.6579%;width:1.5000%"><em><b>31 Jul 2026</b>185 peak</em></span></span></div></section><section class="pane p-2026-08"><h3>August 2026</h3><p class="why">31 days as the curve, each the highest figure that day. Behind it, 437 hourly samples from 13 Aug, which is as far back as the source keeps every hour.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">68</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">136</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">203</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">271</text><text class="xlab" x="62.0" y="286">01 Aug</text><text class="xlab" x="172.4" y="286">06 Aug</text><text class="xlab" x="282.8" y="286">11 Aug</text><text class="xlab" x="412.0" y="286">16 Aug</text><text class="xlab" x="523.3" y="286">21 Aug</text><text class="xlab" x="632.8" y="286">26 Aug</text><text class="xlab" x="741.4" y="286">31 Aug</text><path class="hourly" d="M344.8,122.1 L345.7,109.2 L346.7,114.8 L347.6,123.1 L348.5,133.2 L349.4,138.7 L350.4,143.3 L351.3,136.9 L352.2,144.3 L353.1,159.0 L354.0,180.2 L354.9,191.3 L355.8,195.0 L356.7,185.8 L357.7,186.7 L358.6,197.8 L359.5,179.3 L360.5,162.7 L361.4,156.3 L362.3,142.4 L363.0,136.0 L364.2,136.9 L365.1,114.8 L366.0,122.1 L366.9,97.2 L367.8,120.3 L368.7,146.1 L369.7,148.0 L370.6,144.3 L371.5,151.6 L372.4,138.7 L373.3,144.3 L374.3,140.6 L375.2,157.2 L376.1,175.6 L377.0,186.7 L377.9,182.1 L378.9,193.1 L379.8,183.0 L380.7,179.3 L381.6,175.6 L382.6,172.9 L383.5,150.7 L384.5,142.4 L385.4,116.6 L386.3,113.8 L387.2,111.1 L388.1,93.5 L389.0,112.9 L389.9,87.1 L390.8,112.9 L391.8,136.0 L392.7,137.8 L393.6,142.4 L394.5,136.0 L395.4,131.4 L396.3,134.1 L397.2,148.0 L398.2,177.5 L399.1,177.5 L400.0,176.5 L400.9,177.5 L401.9,175.6 L402.8,162.7 L403.7,150.7 L404.7,162.7 L405.6,142.4 L406.5,121.2 L407.4,116.6 L408.4,112.0 L409.3,105.5 L410.2,100.0 L411.1,80.6 L412.0,72.3 L412.8,75.1 L413.7,109.2 L414.8,104.6 L415.7,118.4 L416.6,123.1 L417.5,140.6 L418.4,150.7 L419.3,152.6 L420.2,187.6 L421.1,195.9 L422.1,207.9 L423.0,195.9 L423.9,193.1 L424.8,180.2 L425.8,183.0 L426.7,162.7 L427.7,165.5 L428.6,150.7 L429.5,159.0 L430.5,154.4 L431.4,131.4 L432.3,130.4 L433.2,118.4 L434.1,103.7 L435.0,112.0 L435.9,120.3 L436.8,146.1 L437.8,129.5 L438.7,136.0 L439.6,149.8 L440.5,171.0 L441.4,175.6 L442.3,190.4 L443.3,187.6 L444.2,200.5 L445.1,195.9 L446.0,201.4 L446.9,186.7 L447.8,177.5 L448.7,164.6 L449.7,159.0 L450.7,133.2 L451.6,141.5 L452.5,119.4 L453.4,120.3 L454.3,122.1 L455.3,108.3 L456.2,90.8 L457.0,119.4 L458.0,124.0 L458.9,142.4 L459.8,138.7 L460.7,136.9 L461.7,147.0 L462.6,170.1 L463.5,186.7 L464.4,195.0 L465.3,191.3 L466.2,207.9 L467.1,213.4 L468.1,201.4 L469.0,202.4 L469.9,196.8 L470.9,195.9 L471.8,177.5 L472.8,162.7 L473.7,161.8 L474.7,157.2 L475.6,141.5 L476.4,125.8 L477.4,112.9 L478.3,115.7 L479.2,133.2 L480.1,148.0 L481.0,152.6 L481.9,131.4 L482.9,142.4 L483.8,156.3 L484.7,164.6 L485.6,171.0 L486.5,195.0 L487.4,209.7 L488.3,209.7 L489.2,223.6 L490.2,205.1 L491.1,199.6 L492.0,187.6 L492.9,172.9 L493.9,157.2 L494.9,163.6 L495.8,158.1 L496.7,142.4 L497.4,135.0 L498.5,119.4 L499.4,106.5 L500.3,112.9 L501.3,131.4 L502.2,144.3 L503.1,149.8 L504.0,136.0 L504.9,148.9 L505.9,149.8 L506.7,159.0 L507.6,188.5 L508.6,203.3 L509.5,204.2 L510.4,200.5 L511.3,211.6 L512.3,207.0 L513.2,195.9 L514.1,183.0 L515.0,169.2 L516.0,158.1 L517.0,151.6 L517.9,145.2 L518.8,148.0 L519.7,140.6 L520.6,133.2 L521.6,133.2 L522.5,124.0 L523.3,113.8 L524.3,134.1 L525.2,147.0 L526.1,148.0 L527.1,131.4 L528.0,158.1 L528.9,145.2 L529.8,160.9 L530.7,178.4 L531.6,176.5 L532.5,178.4 L533.4,183.9 L534.3,183.9 L535.3,172.9 L536.0,170.1 L537.1,150.7 L538.1,141.5 L539.0,149.8 L539.9,131.4 L540.9,114.8 L541.7,109.2 L542.7,95.4 L543.6,92.6 L544.5,112.9 L545.4,112.0 L546.3,115.7 L547.3,115.7 L548.2,118.4 L549.1,130.4 L550.0,126.7 L550.9,144.3 L551.8,162.7 L552.7,176.5 L553.6,180.2 L554.6,186.7 L555.5,185.8 L556.4,182.1 L557.4,170.1 L558.3,178.4 L559.2,158.1 L560.2,133.2 L561.1,130.4 L562.0,111.1 L562.9,99.1 L563.8,82.5 L564.7,85.2 L565.7,70.5 L566.5,78.8 L567.5,84.3 L568.4,95.4 L569.3,118.4 L570.3,132.3 L571.2,129.5 L572.0,124.0 L573.0,142.4 L573.9,165.5 L574.8,195.0 L575.7,204.2 L576.6,192.2 L577.6,195.0 L578.5,195.9 L579.4,197.8 L580.4,193.1 L581.3,170.1 L582.2,155.3 L583.1,161.8 L584.1,136.0 L585.0,131.4 L585.9,133.2 L586.9,124.0 L587.8,118.4 L588.7,114.8 L589.6,131.4 L590.5,134.1 L591.1,146.1 L592.3,140.6 L593.3,133.2 L594.2,140.6 L595.1,148.0 L596.0,171.9 L596.9,206.1 L597.8,207.9 L598.7,197.8 L599.6,202.4 L600.6,207.0 L601.5,205.1 L602.4,191.3 L603.4,183.9 L604.3,177.5 L605.3,152.6 L606.2,136.0 L607.1,141.5 L608.0,144.3 L609.0,136.9 L609.9,123.1 L610.7,114.8 L611.7,145.2 L612.6,143.3 L613.5,143.3 L614.3,146.1 L615.3,141.5 L616.3,146.1 L617.2,167.3 L618.0,175.6 L619.0,184.8 L619.9,201.4 L620.8,202.4 L621.7,217.1 L622.7,208.8 L623.6,213.4 L624.6,190.4 L625.5,180.2 L626.4,176.5 L627.4,159.0 L628.3,163.6 L629.2,171.9 L630.2,148.0 L631.0,136.9 L631.7,128.6 L632.8,98.2 L633.7,124.0 L634.6,126.7 L635.6,135.0 L636.5,137.8 L637.4,142.4 L638.3,146.1 L639.2,149.8 L640.2,183.0 L641.1,202.4 L642.0,205.1 L642.9,209.7 L643.8,212.5 L644.7,200.5 L645.7,186.7 L646.6,201.4 L647.5,194.1 L648.5,187.6 L649.5,172.9 L650.4,167.3 L651.3,166.4 L652.3,182.1 L653.1,168.2 L654.1,126.7 L655.0,119.4 L655.9,133.2 L656.8,150.7 L657.7,153.5 L658.6,149.8 L659.5,148.9 L660.4,140.6 L661.3,150.7 L662.2,182.1 L663.1,202.4 L664.1,217.1 L665.0,214.4 L665.9,207.0 L666.8,204.2 L667.8,198.7 L668.7,195.0 L669.6,193.1 L670.6,171.9 L671.5,159.9 L672.5,158.1 L673.4,162.7 L674.3,149.8 L675.2,130.4 L676.1,125.8 L677.0,129.5 L677.9,147.0 L678.9,142.4 L679.5,133.2 L680.7,126.7 L681.6,139.7 L682.5,139.7 L683.4,139.7 L684.1,167.3 L685.3,181.2 L686.2,194.1 L687.1,196.8 L688.0,195.0 L689.0,183.9 L689.9,184.8 L690.8,183.0 L691.7,159.0 L692.7,144.3 L693.6,121.2 L694.5,120.3 L695.4,128.6 L696.3,121.2 L697.3,114.8 L698.2,98.2 L699.1,93.5 L700.0,104.6 L700.9,136.0 L701.8,129.5 L702.7,117.5 L703.7,114.8 L704.6,127.7 L705.5,140.6 L706.4,149.8 L707.4,172.9 L708.3,184.8 L709.2,184.8 L710.1,193.1 L711.0,179.3 L712.0,166.4 L712.9,165.5 L713.8,157.2 L714.7,149.8 L715.7,136.9 L716.6,111.1 L717.5,103.7 L718.4,89.9 L719.3,93.5 L719.9,95.4 L721.2,74.2 L722.1,68.6 L723.0,100.9 L723.9,117.5 L724.8,124.0 L725.4,130.4 L726.6,133.2 L727.5,147.0 L728.5,150.7 L729.4,171.9 L730.3,190.4 L731.2,197.8 L732.1,193.1 L733.1,190.4 L734.0,181.2 L735.0,172.9 L735.9,167.3 L736.8,141.5 L737.7,137.8 L738.6,132.3 L739.6,118.4 L740.5,128.6 L741.4,104.6 L742.3,108.3 L743.2,106.5 L744.1,122.1 L745.1,145.2 L746.0,155.3"/><path class="area" d="M62.0,79.7 C69.4,64.6 76.7,32.4 84.1,34.5 C91.4,36.7 98.8,80.8 106.2,92.6 C113.5,104.5 120.9,104.3 128.2,105.5 C135.6,106.8 143.0,102.0 150.3,100.0 C157.7,98.0 165.0,92.6 172.4,93.5 C179.8,94.5 187.1,107.1 194.5,105.5 C201.9,104.0 209.2,95.4 216.6,84.3 C223.9,73.3 231.3,35.1 238.7,39.1 C246.0,43.1 253.4,99.5 260.7,108.3 C268.1,117.1 275.5,89.9 282.8,91.7 C290.2,93.5 297.5,116.4 304.9,119.4 C312.3,122.3 319.6,112.0 327.0,109.2 C340.3,104.2 353.6,102.2 366.9,97.2 C374.6,94.4 382.2,91.3 389.9,87.1 C397.3,83.0 404.6,69.6 412.0,72.3 C419.4,75.1 426.7,100.6 434.1,103.7 C441.4,106.8 448.8,89.1 456.2,90.8 C463.2,92.4 470.3,110.3 477.4,112.9 C484.7,115.7 492.1,106.4 499.4,106.5 C507.4,106.5 515.3,116.8 523.3,113.8 C530.1,111.3 536.8,99.6 543.6,92.6 C550.9,85.1 558.3,67.1 565.7,70.5 C573.3,74.0 581.0,114.8 588.7,114.8 C596.0,114.8 603.4,114.8 610.7,114.8 C618.1,114.8 625.5,97.4 632.8,98.2 C640.2,98.9 647.6,114.7 655.0,119.4 C662.0,123.8 669.1,129.7 676.1,125.8 C683.8,121.6 691.4,103.1 699.1,93.5 C706.7,84.0 714.4,65.7 722.1,68.6 C728.5,71.1 735.0,92.6 741.4,104.6 L741.4,266.0 L62.0,266.0 Z"/><path class="line-avg" d="M62.0,79.7 C69.4,64.6 76.7,32.4 84.1,34.5 C91.4,36.7 98.8,80.8 106.2,92.6 C113.5,104.5 120.9,104.3 128.2,105.5 C135.6,106.8 143.0,102.0 150.3,100.0 C157.7,98.0 165.0,92.6 172.4,93.5 C179.8,94.5 187.1,107.1 194.5,105.5 C201.9,104.0 209.2,95.4 216.6,84.3 C223.9,73.3 231.3,35.1 238.7,39.1 C246.0,43.1 253.4,99.5 260.7,108.3 C268.1,117.1 275.5,89.9 282.8,91.7 C290.2,93.5 297.5,116.4 304.9,119.4 C312.3,122.3 319.6,112.0 327.0,109.2 C340.3,104.2 353.6,102.2 366.9,97.2 C374.6,94.4 382.2,91.3 389.9,87.1 C397.3,83.0 404.6,69.6 412.0,72.3 C419.4,75.1 426.7,100.6 434.1,103.7 C441.4,106.8 448.8,89.1 456.2,90.8 C463.2,92.4 470.3,110.3 477.4,112.9 C484.7,115.7 492.1,106.4 499.4,106.5 C507.4,106.5 515.3,116.8 523.3,113.8 C530.1,111.3 536.8,99.6 543.6,92.6 C550.9,85.1 558.3,67.1 565.7,70.5 C573.3,74.0 581.0,114.8 588.7,114.8 C596.0,114.8 603.4,114.8 610.7,114.8 C618.1,114.8 625.5,97.4 632.8,98.2 C640.2,98.9 647.6,114.7 655.0,119.4 C662.0,123.8 669.1,129.7 676.1,125.8 C683.8,121.6 691.4,103.1 699.1,93.5 C706.7,84.0 714.4,65.7 722.1,68.6 C728.5,71.1 735.0,92.6 741.4,104.6"/><circle class="dot" cx="62.0" cy="79.7" r="3"/><circle class="dot" cx="84.1" cy="34.5" r="3"/><circle class="dot" cx="106.2" cy="92.6" r="3"/><circle class="dot" cx="128.2" cy="105.5" r="3"/><circle class="dot" cx="150.3" cy="100.0" r="3"/><circle class="dot" cx="172.4" cy="93.5" r="3"/><circle class="dot" cx="194.5" cy="105.5" r="3"/><circle class="dot" cx="216.6" cy="84.3" r="3"/><circle class="dot" cx="238.7" cy="39.1" r="3"/><circle class="dot" cx="260.7" cy="108.3" r="3"/><circle class="dot" cx="282.8" cy="91.7" r="3"/><circle class="dot" cx="304.9" cy="119.4" r="3"/><circle class="dot" cx="327.0" cy="109.2" r="3"/><circle class="dot" cx="366.9" cy="97.2" r="3"/><circle class="dot" cx="389.9" cy="87.1" r="3"/><circle class="dot" cx="412.0" cy="72.3" r="3"/><circle class="dot" cx="434.1" cy="103.7" r="3"/><circle class="dot" cx="456.2" cy="90.8" r="3"/><circle class="dot" cx="477.4" cy="112.9" r="3"/><circle class="dot" cx="499.4" cy="106.5" r="3"/><circle class="dot" cx="523.3" cy="113.8" r="3"/><circle class="dot" cx="543.6" cy="92.6" r="3"/><circle class="dot" cx="565.7" cy="70.5" r="3"/><circle class="dot" cx="588.7" cy="114.8" r="3"/><circle class="dot" cx="610.7" cy="114.8" r="3"/><circle class="dot" cx="632.8" cy="98.2" r="3"/><circle class="dot" cx="655.0" cy="119.4" r="3"/><circle class="dot" cx="676.1" cy="125.8" r="3"/><circle class="dot" cx="699.1" cy="93.5" r="3"/><circle class="dot" cx="722.1" cy="68.6" r="3"/><circle class="dot" cx="741.4" cy="104.6" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:1.4527%"><em><b>01 Aug 2026</b>202 peak</em></span><span class="hv" style="left:9.6106%;width:2.9055%"><em><b>02 Aug 2026</b>251 peak</em></span><span class="hv" style="left:12.5161%;width:2.9055%"><em><b>03 Aug 2026</b>188 peak</em></span><span class="hv" style="left:15.4216%;width:2.9055%"><em><b>04 Aug 2026</b>174 peak</em></span><span class="hv" style="left:18.3271%;width:2.9055%"><em><b>05 Aug 2026</b>180 peak</em></span><span class="hv" style="left:21.2326%;width:2.9055%"><em><b>06 Aug 2026</b>187 peak</em></span><span class="hv" style="left:24.1381%;width:2.9055%"><em><b>07 Aug 2026</b>174 peak</em></span><span class="hv" style="left:27.0436%;width:2.9055%"><em><b>08 Aug 2026</b>197 peak</em></span><span class="hv" style="left:29.9491%;width:2.9055%"><em><b>09 Aug 2026</b>246 peak</em></span><span class="hv" style="left:32.8546%;width:2.9055%"><em><b>10 Aug 2026</b>171 peak</em></span><span class="hv" style="left:35.7600%;width:2.9055%"><em><b>11 Aug 2026</b>189 peak</em></span><span class="hv" style="left:38.6655%;width:2.9055%"><em><b>12 Aug 2026</b>159 peak</em></span><span class="hv" style="left:41.5710%;width:4.0802%"><em><b>13 Aug 2026</b>170 peak</em></span><span class="hv" style="left:45.6512%;width:4.1398%"><em><b>14 Aug 2026</b>183 peak</em></span><span class="hv" style="left:49.7910%;width:2.9658%"><em><b>15 Aug 2026</b>194 peak</em></span><span class="hv" style="left:52.7568%;width:2.9068%"><em><b>16 Aug 2026</b>210 peak</em></span><span class="hv" style="left:55.6636%;width:2.9055%"><em><b>17 Aug 2026</b>176 peak</em></span><span class="hv" style="left:58.5691%;width:2.8469%"><em><b>18 Aug 2026</b>190 peak</em></span><span class="hv" style="left:61.4160%;width:2.8470%"><em><b>19 Aug 2026</b>166 peak</em></span><span class="hv" style="left:64.2630%;width:3.0214%"><em><b>20 Aug 2026</b>173 peak</em></span><span class="hv" style="left:67.2844%;width:2.9053%"><em><b>21 Aug 2026</b>165 peak</em></span><span class="hv" style="left:70.1897%;width:2.7874%"><em><b>22 Aug 2026</b>188 peak</em></span><span class="hv" style="left:72.9771%;width:2.9652%"><em><b>23 Aug 2026</b>212 peak</em></span><span class="hv" style="left:75.9423%;width:2.9661%"><em><b>24 Aug 2026</b>164 peak</em></span><span class="hv" style="left:78.9084%;width:2.9067%"><em><b>25 Aug 2026</b>164 peak</em></span><span class="hv" style="left:81.8151%;width:2.9085%"><em><b>26 Aug 2026</b>182 peak</em></span><span class="hv" style="left:84.7237%;width:2.8475%"><em><b>27 Aug 2026</b>159 peak</em></span><span class="hv" style="left:87.5711%;width:2.9015%"><em><b>28 Aug 2026</b>152 peak</em></span><span class="hv" style="left:90.4726%;width:3.0213%"><em><b>29 Aug 2026</b>187 peak</em></span><span class="hv" style="left:93.4939%;width:2.7859%"><em><b>30 Aug 2026</b>214 peak</em></span><span class="hv" style="left:96.2798%;width:1.8781%"><em><b>31 Aug 2026</b>175 peak</em></span></span></div></section><section class="pane p-2026-09"><h3>September 2026</h3><p class="why">12 days as the curve, each the highest figure that day. Behind it, 282 hourly samples. Each dip is a night. 1 zero sample(s) dropped.</p><div class="plot"><svg viewBox="0 0 760 300" role="img" aria-label="Players" preserveAspectRatio="xMidYMid meet"><line class="grid" x1="62" y1="266.0" x2="746" y2="266.0"/><text class="ylab" x="54" y="269.5">0</text><line class="grid" x1="62" y1="203.5" x2="746" y2="203.5"/><text class="ylab" x="54" y="207.0">60</text><line class="grid" x1="62" y1="141.0" x2="746" y2="141.0"/><text class="ylab" x="54" y="144.5">120</text><line class="grid" x1="62" y1="78.5" x2="746" y2="78.5"/><text class="ylab" x="54" y="82.0">181</text><line class="grid" x1="62" y1="16.0" x2="746" y2="16.0"/><text class="ylab" x="54" y="19.5">241</text><text class="xlab" x="108.1" y="286">01 Sep</text><text class="xlab" x="224.5" y="286">03 Sep</text><text class="xlab" x="343.3" y="286">05 Sep</text><text class="xlab" x="452.5" y="286">07 Sep</text><text class="xlab" x="576.3" y="286">09 Sep</text><text class="xlab" x="692.7" y="286">11 Sep</text><path class="hourly" d="M62.0,126.9 L64.4,116.5 L66.8,134.2 L69.2,135.2 L71.6,145.6 L74.0,185.0 L76.4,200.6 L78.9,198.5 L81.3,204.8 L83.7,192.3 L86.2,173.6 L88.6,163.2 L91.0,160.1 L93.5,153.9 L96.2,151.8 L98.6,140.4 L101.1,109.3 L103.2,110.3 L105.8,94.7 L108.1,91.6 L110.5,105.1 L112.9,135.2 L115.3,151.8 L117.7,132.1 L120.2,136.2 L122.7,124.8 L125.0,134.2 L127.5,167.4 L129.8,163.2 L132.2,186.1 L134.7,192.3 L137.1,192.3 L139.5,193.3 L141.9,188.1 L144.4,199.6 L146.8,181.9 L149.3,177.8 L151.8,146.6 L154.3,140.4 L156.0,137.3 L159.1,143.5 L161.5,145.6 L164.0,122.8 L166.4,111.3 L168.8,121.7 L171.2,111.3 L172.6,141.4 L176.1,129.0 L178.6,141.4 L180.9,139.4 L183.3,143.5 L185.7,149.7 L188.1,150.8 L190.5,174.7 L192.9,187.1 L195.3,186.1 L197.7,188.1 L200.1,189.2 L202.6,186.1 L205.1,178.8 L207.6,153.9 L210.0,137.3 L212.5,135.2 L214.9,124.8 L217.2,124.8 L219.6,125.9 L222.2,108.2 L224.5,98.9 L226.9,111.3 L229.3,140.4 L231.8,127.9 L234.3,148.7 L236.6,157.0 L239.1,127.9 L241.5,131.1 L243.9,136.2 L246.3,158.0 L248.6,173.6 L251.1,184.0 L253.5,191.3 L255.9,191.3 L258.4,181.9 L260.8,185.0 L263.3,172.6 L265.8,175.7 L268.2,151.8 L270.8,152.9 L273.2,123.8 L275.6,109.3 M280.3,97.8 L282.7,96.8 L285.1,93.7 L287.6,97.8 L290.0,124.8 L292.5,133.1 L294.8,129.0 L297.3,111.3 L299.7,121.7 L302.1,132.1 L304.5,142.5 L306.9,167.4 L309.4,172.6 L311.9,171.5 L313.7,172.6 L316.7,165.3 L319.1,154.9 L321.5,149.7 L323.9,130.0 L326.4,105.1 L328.8,95.8 L331.3,86.4 L333.7,94.7 L336.0,88.5 L338.5,55.3 L341.0,42.8 L343.3,34.5 L345.7,63.6 L348.1,74.0 L350.5,92.6 L352.9,123.8 L355.4,97.8 L357.8,121.7 L360.2,124.8 L362.6,137.3 L364.5,151.8 L367.5,167.4 L369.9,162.2 L372.3,148.7 L374.7,150.8 L377.3,122.8 L379.7,134.2 L382.3,124.8 L383.8,123.8 L387.1,97.8 L389.4,91.6 L391.9,55.3 L394.3,47.0 L396.7,52.2 L399.1,64.6 L401.6,78.1 L403.9,92.6 L406.4,101.0 L408.8,110.3 L411.2,107.2 L413.7,106.1 L416.1,140.4 L418.4,134.2 L420.8,132.1 L423.3,126.9 L425.7,160.1 L427.4,177.8 L430.6,204.8 L433.0,190.2 L435.4,198.5 L437.7,190.2 L440.3,178.8 L442.8,161.2 L445.3,136.2 L447.7,114.4 L450.1,93.7 L452.5,49.1 L454.9,52.2 L456.7,58.4 L459.7,71.9 L462.2,102.0 L464.6,99.9 L467.0,123.8 L469.4,134.2 L471.9,113.4 L474.1,118.6 L476.6,143.5 L479.0,171.5 L481.4,194.4 L483.9,195.4 L486.3,190.2 L488.7,202.7 L490.8,201.6 L493.6,194.4 L496.1,184.0 L498.5,171.5 L501.0,148.7 L503.5,144.6 L506.1,142.5 L508.4,144.6 L510.9,105.1 L513.1,107.2 L515.6,102.0 L517.9,110.3 L520.4,106.1 L522.9,135.2 L525.3,156.0 L527.6,131.1 L530.1,138.3 L532.5,138.3 L535.0,168.4 L537.3,179.8 L539.7,186.1 L542.1,195.4 L544.5,213.1 L547.0,219.3 L549.4,198.5 L551.9,195.4 L554.4,188.1 L556.8,172.6 L559.3,157.0 L561.8,170.5 L564.3,153.9 L566.6,141.4 L569.0,126.9 L571.4,135.2 L573.8,120.7 L576.3,117.6 L578.7,117.6 L581.1,137.3 L583.5,156.0 L586.0,146.6 L588.4,139.4 L590.8,153.9 L593.1,159.1 L595.6,170.5 L598.0,181.9 L600.4,199.6 L602.8,197.5 L605.2,198.5 L607.6,199.6 L610.2,198.5 L612.6,198.5 L614.9,178.8 L617.5,166.3 L620.0,171.5 L622.5,159.1 L624.9,152.9 L627.3,119.6 L629.6,138.3 L632.1,95.8 L634.4,119.6 L636.9,130.0 L639.2,163.2 L641.0,158.0 L644.1,142.5 L646.6,137.3 L648.9,144.6 L651.3,143.5 L653.6,165.3 L656.1,187.1 L658.5,181.9 L660.9,183.0 L663.4,192.3 L665.9,199.6 L668.3,193.3 L670.8,194.4 L673.3,186.1 L675.7,167.4 L678.1,161.2 L680.8,157.0 L683.1,158.0 L685.6,140.4 L687.9,134.2 L690.3,127.9 L692.7,112.4 L695.2,124.8 L697.6,145.6 L700.0,152.9 L702.5,138.3 L704.8,124.8 L707.2,118.6 L709.7,123.8 L712.1,141.4 L714.5,168.4 L716.8,164.3 L719.2,179.8 L721.7,180.9 L724.1,176.7 L726.6,153.9 L728.9,161.2 L731.5,154.9 L734.0,132.1 L736.4,125.9 L738.8,105.1 L741.2,97.8 L743.6,94.7 L746.0,88.5"/><path class="area" d="M108.1,91.6 C127.5,98.2 147.0,110.1 166.4,111.3 C185.7,112.5 205.1,100.2 224.5,98.9 C244.7,97.5 264.9,98.7 285.1,93.7 C304.5,88.9 323.9,42.0 343.3,34.5 C360.3,27.9 377.3,46.4 394.3,47.0 C413.7,47.6 433.1,47.1 452.5,49.1 C473.6,51.2 494.6,90.5 515.6,102.0 C535.8,113.1 556.1,118.9 576.3,117.6 C594.9,116.3 613.5,96.8 632.1,95.8 C652.3,94.6 672.5,114.1 692.7,112.4 C710.5,110.8 728.2,96.5 746.0,88.5 L746.0,266.0 L108.1,266.0 Z"/><path class="line-avg" d="M108.1,91.6 C127.5,98.2 147.0,110.1 166.4,111.3 C185.7,112.5 205.1,100.2 224.5,98.9 C244.7,97.5 264.9,98.7 285.1,93.7 C304.5,88.9 323.9,42.0 343.3,34.5 C360.3,27.9 377.3,46.4 394.3,47.0 C413.7,47.6 433.1,47.1 452.5,49.1 C473.6,51.2 494.6,90.5 515.6,102.0 C535.8,113.1 556.1,118.9 576.3,117.6 C594.9,116.3 613.5,96.8 632.1,95.8 C652.3,94.6 672.5,114.1 692.7,112.4 C710.5,110.8 728.2,96.5 746.0,88.5"/><circle class="dot" cx="108.1" cy="91.6" r="3"/><circle class="dot" cx="166.4" cy="111.3" r="3"/><circle class="dot" cx="224.5" cy="98.9" r="3"/><circle class="dot" cx="285.1" cy="93.7" r="3"/><circle class="dot" cx="343.3" cy="34.5" r="3"/><circle class="dot" cx="394.3" cy="47.0" r="3"/><circle class="dot" cx="452.5" cy="49.1" r="3"/><circle class="dot" cx="515.6" cy="102.0" r="3"/><circle class="dot" cx="576.3" cy="117.6" r="3"/><circle class="dot" cx="632.1" cy="95.8" r="3"/><circle class="dot" cx="692.7" cy="112.4" r="3"/><circle class="dot" cx="746.0" cy="88.5" r="3"/></svg><span class="hovers"><span class="hv" style="left:8.1579%;width:9.9023%"><em><b>01 Sep 2026</b>168 peak</em></span><span class="hv" style="left:18.0602%;width:7.6544%"><em><b>02 Sep 2026</b>149 peak</em></span><span class="hv" style="left:25.7146%;width:7.8135%"><em><b>03 Sep 2026</b>161 peak</em></span><span class="hv" style="left:33.5281%;width:7.8171%"><em><b>04 Sep 2026</b>166 peak</em></span><span class="hv" style="left:41.3452%;width:7.1796%"><em><b>05 Sep 2026</b>223 peak</em></span><span class="hv" style="left:48.5248%;width:7.1866%"><em><b>06 Sep 2026</b>211 peak</em></span><span class="hv" style="left:55.7114%;width:7.9819%"><em><b>07 Sep 2026</b>209 peak</em></span><span class="hv" style="left:63.6933%;width:8.1438%"><em><b>08 Sep 2026</b>158 peak</em></span><span class="hv" style="left:71.8371%;width:7.6628%"><em><b>09 Sep 2026</b>143 peak</em></span><span class="hv" style="left:79.5000%;width:7.6559%"><em><b>10 Sep 2026</b>164 peak</em></span><span class="hv" style="left:87.1559%;width:7.4948%"><em><b>11 Sep 2026</b>148 peak</em></span><span class="hv" style="left:94.6507%;width:3.5072%"><em><b>12 Sep 2026</b>171 peak</em></span></span></div></section></div><footer>Nothing here is interpolated or estimated; where a sample is missing the line is broken.</footer></div></div><input class="modal-toggle" type="checkbox" id="news-open"><div class="modal"><label class="modal-back" for="news-open" aria-label="Close"></label><div class="modal-box tl-box modal-tall" role="dialog" aria-modal="true" aria-label="News and announcements"><label class="modal-x" for="news-open" aria-label="Close">&times;</label><h2>News &amp; announcements</h2><p class="sub">SIGNALIS &middot; 11 developer announcements, Oct 2022 to Jan 2026 &middot; times in UTC</p><input class="tl-pick" type="radio" name="tl-year" id="tl-y0" checked><input class="tl-pick" type="radio" name="tl-year" id="tl-y1"><input class="tl-pick" type="radio" name="tl-year" id="tl-y2"><input class="tl-pick" type="radio" name="tl-year" id="tl-y3"><input class="tl-pick" type="radio" name="tl-year" id="tl-y4"><div class="tl-tabs"><label for="tl-y0">2026<b>1</b></label><label for="tl-y1">2025<b>2</b></label><label for="tl-y2">2024<b>2</b></label><label for="tl-y3">2023<b>4</b></label><label for="tl-y4">2022<b>2</b></label></div><div class="tl modal-scroll"><section class="tl-year tl-s0"><div class="tl-month"><h3>January</h3><ol class="tl-list"><li class="tl-item"><time datetime="2026-01-27T18:22:53+00:00">27 Jan<i>18:22</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1822556746169772" target="_blank" rel="noopener noreferrer">NEW OFFICIAL SIGNALIS MERCH <span aria-hidden="true">&#8599;</span></a><p>We&#x27;re happy to announce that Fangamer has released a new wave of official SIGNALIS merch. A set of four embroidered patches, an A3/18x24&quot; poster, and a new long-sleeved shirt are available now:The SIGNALIS embroidered patch set includes…</p><small>rose_engine</small></div></li></ol></div></section><section class="tl-year tl-s1"><div class="tl-month"><h3>May</h3><ol class="tl-list"><li class="tl-item"><time datetime="2025-05-12T16:47:53+00:00">12 May<i>16:47</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1799088287963395" target="_blank" rel="noopener noreferrer">SIGNALIS:MEMORIES ALBUM RELEASED &amp; OST CD PRE-ORDER <span aria-hidden="true">&#8599;</span></a><p>SIGNALIS:MEMORIES Side A &amp; B Out Now on Bandcamp &amp; Streaming {STEAM_CLAN_IMAGE}/37297831/29bfadefe0257fbd356946102d9cde91c71db1c0.png Out now as digital download and available on major streaming platforms, SIGNALIS:MEMORIES is a collection…</p><small>rose_engine</small></div></li></ol></div><div class="tl-month"><h3>January</h3><ol class="tl-list"><li class="tl-item"><time datetime="2025-01-22T16:34:47+00:00">22 Jan<i>16:34</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1789580505277676" target="_blank" rel="noopener noreferrer">OFFICIAL SIGNALIS MERCH RESTOCK &amp; PRE-ORDER <span aria-hidden="true">&#8599;</span></a><p>{STEAM_CLAN_IMAGE}/37297831/59073187878a9f2a9956da5c2a8cdc6b0950ba4f.png We&#x27;re happy to announce that Fangamer has restocked their official SIGNALIS T-shirt, Penrose Enamel Pin and Corruption Lenticular Pin. They&#x27;ve also added another…</p><small>rose_engine</small></div></li></ol></div></section><section class="tl-year tl-s2"><div class="tl-month"><h3>October</h3><ol class="tl-list"><li class="tl-item is-patch"><time datetime="2024-10-10T20:05:46+00:00">10 Oct<i>20:05</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6931694080292495566" target="_blank" rel="noopener noreferrer">L* BETRIEBSYSTEM PATCH 1.2.2 <span aria-hidden="true">&#8599;</span></a><p>SIGNALIS Version PC-Steam 1.2.2 &quot;KRÄHE&quot; R-49 - This patch fixes various small, non-game-breaking bugs. - Reduced the compression of audio banks slightly to improve performance on certain systems. We apologize for the resulting patch…</p><small>Patch notes</small></div></li></ol></div><div class="tl-month"><h3>April</h3><ol class="tl-list"><li class="tl-item"><time datetime="2024-04-14T20:03:46+00:00">14 Apr<i>20:03</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6474562312193119222" target="_blank" rel="noopener noreferrer">SIGNALIS ORIGINAL SOUNDTRACK REPRESS <span aria-hidden="true">&#8599;</span></a><p>{STEAM_CLAN_IMAGE}/37297831/326bc069f8c2f860d57077842ab6a19a549bf8d2.png Until May 3rd 2024, the SIGNALIS Original Soundtrack by Cicada Sirens &amp; 1000 Eyes is available again for pre-order as a 3-Disk Vinyl Set, featuring a trifold jacket…</p><small>rose_engine</small></div></li></ol></div></section><section class="tl-year tl-s3"><div class="tl-month"><h3>December</h3><ol class="tl-list"><li class="tl-item is-patch"><time datetime="2023-12-31T23:25:04+00:00">31 Dec<i>23:25</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5410576585167957827" target="_blank" rel="noopener noreferrer">L* BETRIEBSYSTEM PATCH 1.2.1 <span aria-hidden="true">&#8599;</span></a><p>SIGNALIS Version PC-Steam 1.2.1 &quot;KRÄHE&quot; R-42 This patch adds native support for DualShock 4 and DualSense controllers on PC. Added adaptive trigger effects for DualSense controllers. The intensity of the effect can be adjusted in the…</p><small>Patch notes</small></div></li></ol></div><div class="tl-month"><h3>October</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-10-25T20:16:50+00:00">25 Oct<i>20:16</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5229301621573521878" target="_blank" rel="noopener noreferrer">L* BETRIEBSSYSTEM UPDATE 1.2 &quot;KRÄHE&quot; <span aria-hidden="true">&#8599;</span></a><p>SIGNALIS Version PC-Steam 1.2 &quot;KRÄHE&quot; R-33 {STEAM_CLAN_IMAGE}/37297831/fe0f51b6f63da4948428499ec0cae35cf3882608.gif Added an option to adjust the inventory capacity. By default, the Flashlight Module and Eidetic Module will no longer take…</p><small>rose_engine</small></div></li></ol></div><div class="tl-month"><h3>July</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-07-18T19:35:06+00:00">18 Jul<i>19:35</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/6079346804890804328" target="_blank" rel="noopener noreferrer">SIGNALIS ORIGINAL SOUNDTRACK <span aria-hidden="true">&#8599;</span></a><p>{STEAM_CLAN_IMAGE}/37297831/785f29bdd55d288d6fe37cb77523d657f1216417.png Until August 11th 2023, the SIGNALIS Original Soundtrack by Cicada Sirens &amp; 1000 Eyes is available for pre-order as a 3-Disk Vinyl Set, featuring a trifold jacket…</p><small>rose_engine</small></div></li></ol></div><div class="tl-month"><h3>February</h3><ol class="tl-list"><li class="tl-item"><time datetime="2023-02-20T15:53:34+00:00">20 Feb<i>15:53</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5059268099251391567" target="_blank" rel="noopener noreferrer">L* BETRIEBSSYSTEM UPDATE 1.1 &quot;SPATZ&quot; <span aria-hidden="true">&#8599;</span></a><p>SIGNALIS Version PC-Steam 1.1 &quot;SPATZ&quot; R-15 This patch primarily addresses rare, game-breaking bugs in multiple puzzles throughout the game. Fixed Resolution, Refresh Rate and CRT mode settings not loading correctly on game startup. Improved…</p><small>rose_engine</small></div></li></ol></div></section><section class="tl-year tl-s4"><div class="tl-month"><h3>November</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-11-25T18:11:35+00:00">25 Nov<i>18:11</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4836332027659810498" target="_blank" rel="noopener noreferrer">FOR YOUR CONSIDERATION <span aria-hidden="true">&#8599;</span></a><p>When making SIGNALIS, we were hoping to create an emotional story that will stay with you long after you&#x27;ve finished it. If you feel SIGNALIS has achieved this for you, please consider nominating us for this year&#x27;s Steam Awards. Thank you!…</p><small>rose_engine</small></div></li></ol></div><div class="tl-month"><h3>October</h3><ol class="tl-list"><li class="tl-item"><time datetime="2022-10-27T14:00:56+00:00">27 Oct<i>14:00</i></time><div class="tl-copy"><a href="https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4706851091173238488" target="_blank" rel="noopener noreferrer">SIGNALIS IS OUT NOW <span aria-hidden="true">&#8599;</span></a><p>THANK YOU FOR YOUR PATIENCE. SIGNALIS IS NOW AVAILABLE. Soundtrack available on Bandcamp https://store.steampowered.com/app/1262350/SIGNALIS/</p><small>rose_engine</small></div></li></ol></div></section></div></div></div><input class="modal-toggle" type="checkbox" id="launch-open"><div class="modal"><label class="modal-back" for="launch-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Launch options"><label class="modal-x" for="launch-open" aria-label="Close">&times;</label><h2>Launch options</h2><p class="sub">What Steam runs, and with what. Straight from the app configuration.</p><table class="optable"><thead><tr><th>Description</th><th>Executable</th><th>Arguments</th><th>Platform</th><th></th></tr></thead><tbody><tr><td><span class="muted">Launch</span></td><td><code class="cb-exe">SIGNALIS.exe</code></td><td></td><td>windows</td><td></td></tr></tbody></table></div></div><input class="modal-toggle" type="checkbox" id="saves-open"><div class="modal"><label class="modal-back" for="saves-open" aria-label="Close"></label><div class="modal-box" role="dialog" aria-modal="true" aria-label="Cloud saves"><label class="modal-x" for="saves-open" aria-label="Close">&times;</label><h2>Cloud saves</h2><p class="sub">The folders Steam Cloud syncs. The root is a token Steam uses for a location on your own machine, not a path this page can know.</p><table class="optable"><thead><tr><th>Root</th><th>Folder</th><th>Files</th></tr></thead><tbody><tr><td><code class="cb-root">gameinstall</code></td><td><code class="cb-word">SIGNALIS_Data/save/</code></td><td><code class="cb-str">*</code> <span class="muted">and below</span></td></tr></tbody></table></div></div>
+</div>
+</body>
+</html>
